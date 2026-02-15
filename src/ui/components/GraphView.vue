@@ -17,6 +17,7 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLDivElement | null>(null);
 const cy = shallowRef<cytoscape.Core | null>(null);
+let edgeAnimationId: number | null = null;
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -189,6 +190,9 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'opacity': 1,
         'width': 2.5,
         'z-index': 998,
+        'line-style': 'dashed',
+        'line-dash-pattern': [8, 4],
+        'line-dash-offset': 0,
       } as unknown as cytoscape.Css.Edge,
     },
     {
@@ -271,13 +275,45 @@ function initCytoscape() {
   cy.value = instance;
 }
 
+function stopEdgeAnimation() {
+  if (edgeAnimationId !== null) {
+    cancelAnimationFrame(edgeAnimationId);
+    edgeAnimationId = null;
+  }
+}
+
+function startEdgeAnimation() {
+  stopEdgeAnimation();
+  if (prefersReducedMotion || !cy.value) return;
+
+  let offset = 0;
+  const speed = 0.3;
+
+  function tick() {
+    if (!cy.value) return;
+    offset = (offset + speed) % 24;
+    const impactEdges = cy.value.edges('.impact-path');
+    if (impactEdges.length === 0) {
+      edgeAnimationId = null;
+      return;
+    }
+    impactEdges.style('line-dash-offset', -offset);
+    edgeAnimationId = requestAnimationFrame(tick);
+  }
+
+  edgeAnimationId = requestAnimationFrame(tick);
+}
+
 function applyHighlight(result: FailingResult | RefactorResult | null) {
   if (!cy.value) return;
   const instance = cy.value;
 
+  // Stop any running edge animation
+  stopEdgeAnimation();
+
   // Clear all impact classes
   instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected');
-  instance.edges().removeClass('impact-path');
+  instance.edges().removeClass('impact-path impact-unaffected');
 
   if (!result) return;
 
@@ -369,6 +405,9 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
     }
   });
 
+  // Start flowing animation on impact edges
+  startEdgeAnimation();
+
   // Zoom to fit the affected subgraph so the user can see the impact
   const affectedNodes = instance.nodes().filter(n => affectedNodeIds.has(n.id()));
   if (affectedNodes.length > 0) {
@@ -385,6 +424,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  stopEdgeAnimation();
   if (cy.value) {
     cy.value.destroy();
     cy.value = null;
