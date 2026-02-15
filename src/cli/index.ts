@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { registerScanCommand } from './scan.js';
 import { registerServeCommand } from './serve.js';
+import { registerDevCommand } from './dev.js';
 import { registerFailingCommand } from './failing.js';
 import { registerRefactorCommand } from './refactor.js';
 import { registerImpactCommand } from './impact.js';
@@ -15,6 +16,7 @@ program
 
 registerScanCommand(program);
 registerServeCommand(program);
+registerDevCommand(program);
 registerFailingCommand(program);
 registerRefactorCommand(program);
 registerImpactCommand(program);

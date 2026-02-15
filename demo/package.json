@@ -1,0 +1,16 @@
+{
+  "name": "battleverse-demo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "BattleVerse Engine - WhatBreaks demo project",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "demo": "tsx scripts/demo.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0",
+    "tsx": "^4.7.0"
+  }
+}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Graph, GraphNode, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
+import { LAYER_COLORS, IMPACT_COLORS } from '../utils/constants';
 import TestCommand from './TestCommand.vue';
 
 const props = defineProps<{
@@ -15,16 +16,6 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const LAYER_COLORS: Record<string, string> = {
-  page: '#6366f1',
-  ui: '#3b82f6',
-  feature: '#8b5cf6',
-  entity: '#a855f7',
-  shared: '#06b6d4',
-  test: '#14b8a6',
-  config: '#64748b',
-};
-
 const impactLabel = computed(() => {
   if (!props.impact) return null;
   const labels: Record<string, string> = {
@@ -38,13 +29,7 @@ const impactLabel = computed(() => {
 
 const impactColor = computed(() => {
   if (!props.impact) return '#64748b';
-  const colors: Record<string, string> = {
-    root: '#ef4444',
-    direct: '#f59e0b',
-    indirect: '#eab308',
-    unaffected: '#64748b',
-  };
-  return colors[props.impact.status] ?? '#64748b';
+  return IMPACT_COLORS[props.impact.status] ?? '#64748b';
 });
 
 const coveringTests = computed(() => {
@@ -84,7 +69,12 @@ function copyPath() {
   <aside class="node-panel">
     <div class="panel-header">
       <h3 class="panel-title">File Details</h3>
-      <button class="close-btn" @click="emit('close')" aria-label="Close panel">&times;</button>
+      <button class="close-btn" @click="emit('close')" aria-label="Close panel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
     </div>
 
     <div class="panel-body">
@@ -144,7 +134,9 @@ function copyPath() {
         <div class="section-label">Tests covering this file ({{ coveringTests.length }})</div>
         <ul class="test-list">
           <li v-for="t in coveringTests" :key="t" class="test-item">
-            <span class="test-icon">&#9654;</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#14b8a6" stroke="none">
+              <polygon points="5,3 19,12 5,21" />
+            </svg>
             {{ t }}
           </li>
         </ul>
@@ -199,17 +191,23 @@ function copyPath() {
   background: none;
   border: none;
   color: #94a3b8;
-  font-size: 22px;
   cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
+  padding: 4px;
   border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.15s, background 0.15s;
 }
 
 .close-btn:hover {
   color: #e2e8f0;
   background: #334155;
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .panel-body {
@@ -349,11 +347,6 @@ function copyPath() {
   padding: 4px 0;
   font-size: 12px;
   color: #94a3b8;
-}
-
-.test-icon {
-  color: #14b8a6;
-  font-size: 8px;
 }
 
 .no-tests {

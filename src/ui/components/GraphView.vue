@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
 import { getFileIcon } from '../utils/fileIcons';
+import { LAYER_COLORS } from '../utils/constants';
 
 const props = defineProps<{
   graph: Graph;
@@ -17,15 +18,7 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLDivElement | null>(null);
 const cy = shallowRef<cytoscape.Core | null>(null);
 
-const LAYER_COLORS: Record<string, string> = {
-  page: '#6366f1',
-  ui: '#3b82f6',
-  feature: '#8b5cf6',
-  entity: '#a855f7',
-  shared: '#06b6d4',
-  test: '#14b8a6',
-  config: '#64748b',
-};
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const LAYER_ORDER: Record<string, number> = {
   page: 0,
@@ -230,8 +223,8 @@ function initCytoscape() {
     style: getStylesheet(),
     layout: {
       name: 'cose',
-      animate: true,
-      animationDuration: 800,
+      animate: !prefersReducedMotion,
+      animationDuration: prefersReducedMotion ? 0 : 800,
       padding: 40,
       nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
       idealEdgeLength: () => nodeCount > 100 ? 120 : 80,

@@ -1,26 +1,12 @@
 <script setup lang="ts">
-const layers = [
-  { label: 'Page', color: '#6366f1' },
-  { label: 'UI', color: '#3b82f6' },
-  { label: 'Feature', color: '#8b5cf6' },
-  { label: 'Entity', color: '#a855f7' },
-  { label: 'Shared', color: '#06b6d4' },
-  { label: 'Test', color: '#14b8a6' },
-  { label: 'Config', color: '#64748b' },
-];
-
-const impacts = [
-  { label: 'Root', color: '#ef4444' },
-  { label: 'Direct', color: '#f59e0b' },
-  { label: 'Indirect', color: '#eab308' },
-];
+import { LAYERS, IMPACTS } from '../utils/constants';
 </script>
 
 <template>
   <div class="legend">
     <div class="legend-group">
       <span class="legend-title">Layers:</span>
-      <div v-for="item in layers" :key="item.label" class="legend-item">
+      <div v-for="item in LAYERS" :key="item.key" class="legend-item">
         <span class="legend-dot" :style="{ background: item.color }"></span>
         <span class="legend-label">{{ item.label }}</span>
       </div>
@@ -28,7 +14,7 @@ const impacts = [
     <div class="legend-separator"></div>
     <div class="legend-group">
       <span class="legend-title">Impact:</span>
-      <div v-for="item in impacts" :key="item.label" class="legend-item">
+      <div v-for="item in IMPACTS" :key="item.key" class="legend-item">
         <span class="legend-dot" :style="{ background: item.color }"></span>
         <span class="legend-label">{{ item.label }}</span>
       </div>

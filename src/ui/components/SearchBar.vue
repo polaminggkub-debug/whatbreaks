@@ -1,20 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import type { GraphNode } from '../../types/graph';
-
-const LAYER_COLORS: Record<string, string> = {
-  page: '#6366f1',
-  ui: '#3b82f6',
-  feature: '#8b5cf6',
-  entity: '#a855f7',
-  shared: '#06b6d4',
-  test: '#14b8a6',
-  config: '#64748b',
-};
-
-function layerColor(layer: string): string {
-  return LAYER_COLORS[layer] ?? '#64748b';
-}
+import { LAYER_COLORS } from '../utils/constants';
 
 const props = defineProps<{
   nodes: GraphNode[];
@@ -26,6 +13,7 @@ const emit = defineEmits<{
 
 const query = ref('');
 const showDropdown = ref(false);
+const activeIndex = ref(-1);
 
 const filtered = computed(() => {
   const q = query.value.toLowerCase().trim();
@@ -39,6 +27,7 @@ function selectNode(nodeId: string) {
   const node = props.nodes.find(n => n.id === nodeId);
   query.value = node?.label ?? nodeId;
   showDropdown.value = false;
+  activeIndex.value = -1;
   emit('select', nodeId);
 }
 
@@ -51,43 +40,68 @@ function onFocus() {
 function onBlur() {
   setTimeout(() => {
     showDropdown.value = false;
+    activeIndex.value = -1;
   }, 200);
 }
 
 function onInput() {
   showDropdown.value = query.value.trim().length > 0;
+  activeIndex.value = -1;
 }
 
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     showDropdown.value = false;
+    activeIndex.value = -1;
     (e.target as HTMLInputElement).blur();
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (activeIndex.value < filtered.value.length - 1) {
+      activeIndex.value++;
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (activeIndex.value > 0) {
+      activeIndex.value--;
+    }
+  } else if (e.key === 'Enter' && activeIndex.value >= 0) {
+    e.preventDefault();
+    selectNode(filtered.value[activeIndex.value].id);
   }
 }
 </script>
 
 <template>
   <div class="search-bar">
-    <div class="search-icon">&#128269;</div>
+    <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
     <input
       v-model="query"
       placeholder="Search files..."
       class="search-input"
+      role="combobox"
+      aria-autocomplete="list"
+      :aria-expanded="showDropdown && filtered.length > 0"
       @focus="onFocus"
       @blur="onBlur"
       @input="onInput"
       @keydown="onKeydown"
     />
-    <div v-if="showDropdown && filtered.length > 0" class="search-dropdown">
+    <div v-if="showDropdown && filtered.length > 0" class="search-dropdown" role="listbox">
       <div
-        v-for="node in filtered"
+        v-for="(node, i) in filtered"
         :key="node.id"
         class="search-item"
+        :class="{ active: i === activeIndex }"
+        role="option"
+        :aria-selected="i === activeIndex"
         @mousedown.prevent="selectNode(node.id)"
       >
         <span class="item-label">{{ node.label }}</span>
         <span class="item-meta">
-          <span class="item-layer" :style="{ color: layerColor(node.layer) }">{{ node.layer }}</span>
+          <span class="item-layer" :style="{ color: LAYER_COLORS[node.layer] ?? '#64748b' }">{{ node.layer }}</span>
           <span class="item-type">{{ node.type }}</span>
         </span>
       </div>
@@ -110,7 +124,6 @@ function onKeydown(e: KeyboardEvent) {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 13px;
   pointer-events: none;
   z-index: 1;
 }
@@ -124,7 +137,7 @@ function onKeydown(e: KeyboardEvent) {
   color: #e2e8f0;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s, width 0.3s;
+  transition: border-color 0.2s;
 }
 
 .search-input::placeholder {
@@ -167,7 +180,8 @@ function onKeydown(e: KeyboardEvent) {
   transition: background 0.1s;
 }
 
-.search-item:hover {
+.search-item:hover,
+.search-item.active {
   background: #334155;
 }
 

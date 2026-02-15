@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import type { Graph, GraphNode, FailingResult, RefactorResult } from '../types/graph';
 import GraphView from './components/GraphView.vue';
 import NodePanel from './components/NodePanel.vue';
@@ -8,6 +8,7 @@ import SearchBar from './components/SearchBar.vue';
 import Legend from './components/Legend.vue';
 import { useImpact } from './composables/useImpact';
 import { useMode } from './composables/useMode';
+import { useDevSocket } from './composables/useDevSocket';
 
 const graph = ref<Graph | null>(null);
 const selectedNode = ref<GraphNode | null>(null);
@@ -16,14 +17,34 @@ const error = ref<string | null>(null);
 
 const { mode, selectedTarget, setTarget, clear: clearMode } = useMode();
 const { highlightResult, analyzeFailure, analyzeRefactor, clearHighlight } = useImpact(graph);
+const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
+
+// When dev socket provides a graph, use it
+watch(devGraph, (newGraph) => {
+  if (newGraph) graph.value = newGraph;
+});
+
+// When dev socket pushes a failure update, apply highlight
+watch(devFailure, (newFailure) => {
+  if (newFailure) {
+    mode.value = 'failing';
+    highlightResult.value = newFailure;
+  }
+});
 
 onMounted(async () => {
+  // If dev mode detected by useDevSocket, graph comes from /api/state
+  // Otherwise fall back to /api/graph (static serve mode)
   try {
     const res = await fetch('/api/graph');
     if (!res.ok) throw new Error(`Failed to load graph: ${res.status}`);
-    graph.value = await res.json();
+    if (!graph.value) {
+      graph.value = await res.json();
+    }
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Failed to load graph data';
+    if (!graph.value) {
+      error.value = e instanceof Error ? e.message : 'Failed to load graph data';
+    }
   } finally {
     loading.value = false;
   }
@@ -95,9 +116,26 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   <div class="app">
     <header class="topbar">
       <div class="logo">
-        <span class="logo-icon">&#9670;</span>
+        <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <defs>
+            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ef4444" />
+              <stop offset="100%" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <polygon points="12 2, 22 8.5, 22 15.5, 12 22, 2 15.5, 2 8.5" />
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="2" y1="8.5" x2="22" y2="8.5" />
+        </svg>
         <span class="logo-text">WhatBreaks</span>
       </div>
+
+      <!-- Dev mode live indicator -->
+      <div v-if="isDevMode" class="dev-badge" :class="{ connected: isConnected }">
+        <span class="dev-dot"></span>
+        <span class="dev-label">{{ isConnected ? 'LIVE' : 'RECONNECTING' }}</span>
+      </div>
+
       <ModeToggle
         :modelValue="mode"
         :nodes="graph?.nodes ?? []"
@@ -113,7 +151,11 @@ function onModeChange(newMode: 'failing' | 'refactor') {
         <p>Loading dependency graph...</p>
       </div>
       <div v-else-if="error" class="error-state">
-        <p class="error-icon">!</p>
+        <svg class="error-icon-svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
         <p>{{ error }}</p>
         <p class="error-hint">Make sure the WhatBreaks server is running.</p>
       </div>
@@ -159,6 +201,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   height: 100vh;
   background: #0f172a;
   color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .topbar {
@@ -182,8 +225,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 }
 
 .logo-icon {
-  color: #ef4444;
-  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .logo-text {
@@ -191,6 +233,53 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* Dev mode indicator */
+.dev-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.dev-badge.connected {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.dev-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.dev-badge.connected .dev-dot {
+  background: #22c55e;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+}
+
+.dev-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #ef4444;
+}
+
+.dev-badge.connected .dev-label {
+  color: #22c55e;
 }
 
 .main {
@@ -224,17 +313,8 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   to { transform: rotate(360deg); }
 }
 
-.error-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #7f1d1d;
-  color: #ef4444;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
+.error-icon-svg {
+  opacity: 0.8;
 }
 
 .error-hint,
@@ -277,5 +357,12 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 .slide-leave-to {
   transform: translateX(100%);
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+  .dev-dot { animation: none; }
+  .slide-enter-active,
+  .slide-leave-active { transition: none; }
 }
 </style>

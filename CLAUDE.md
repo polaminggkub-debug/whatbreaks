@@ -13,7 +13,7 @@ Target users: "vibe coders" who build fast with AI tools but need a codebase map
 - **Language:** TypeScript (ESM)
 - **Scanner:** ts-morph (AST-based import parsing)
 - **CLI:** Commander.js + chalk + ora
-- **Graph UI:** Vue 3 + Cytoscape.js (dagre layout)
+- **Graph UI:** Vue 3 + Cytoscape.js (cose layout)
 - **Build:** tsup (CLI), Vite (UI)
 - **Package:** npm (`npx whatbreaks`)
 
@@ -75,6 +75,18 @@ Generated at `.whatbreaks/graph.json`:
   "edges": [{ "source": "src/a.ts", "target": "src/b.ts", "type": "import" }]
 }
 ```
+
+## Demo Project (BattleVerse Engine)
+
+Located at `demo/` — a battle simulator with 67 source files and 205 tests.
+Use this for testing WhatBreaks features: `whatbreaks scan demo/` then `whatbreaks serve`.
+The hub file `demo/src/core/damage/damageCalculator.ts` cascades to 170+ tests when modified.
+
+## Specs
+
+- **`SPEC_MVP.md`** — Current focus. Work from this. All MVP scope defined here.
+- `SPEC_VISION.md` — Full product vision. Reference only, don't implement beyond MVP.
+- `SPEC_DEV_RUNTIME.md` — Future phases (watcher, git diff, AI, MCP). Don't touch until MVP ships.
 
 ## Layer Classification
 

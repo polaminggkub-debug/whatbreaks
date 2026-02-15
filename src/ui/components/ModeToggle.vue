@@ -14,6 +14,7 @@ const emit = defineEmits<{
 
 const targetInput = ref('');
 const showDropdown = ref(false);
+const activeIndex = ref(-1);
 
 const filteredNodes = computed(() => {
   const search = targetInput.value.toLowerCase().trim();
@@ -40,12 +41,14 @@ function setMode(mode: AnalysisMode) {
   emit('update:modelValue', mode);
   targetInput.value = '';
   showDropdown.value = false;
+  activeIndex.value = -1;
 }
 
 function selectTarget(nodeId: string) {
   const node = props.nodes.find(n => n.id === nodeId);
   targetInput.value = node?.label ?? nodeId;
   showDropdown.value = false;
+  activeIndex.value = -1;
 }
 
 function analyze() {
@@ -59,33 +62,70 @@ function analyze() {
 
 function onInputFocus() {
   showDropdown.value = true;
+  activeIndex.value = -1;
 }
 
 function onInputBlur() {
   // Delay to allow click on dropdown items
   setTimeout(() => {
     showDropdown.value = false;
+    activeIndex.value = -1;
   }, 200);
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (activeIndex.value < filteredNodes.value.length - 1) {
+      activeIndex.value++;
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (activeIndex.value > 0) {
+      activeIndex.value--;
+    }
+  } else if (e.key === 'Enter') {
+    if (activeIndex.value >= 0) {
+      e.preventDefault();
+      selectTarget(filteredNodes.value[activeIndex.value].id);
+    } else {
+      analyze();
+    }
+  } else if (e.key === 'Escape') {
+    showDropdown.value = false;
+    activeIndex.value = -1;
+  }
 }
 </script>
 
 <template>
   <div class="mode-toggle">
-    <div class="mode-buttons">
+    <div class="mode-buttons" role="tablist">
       <button
         class="mode-btn"
         :class="{ active: modelValue === 'failing', failing: modelValue === 'failing' }"
+        role="tab"
+        :aria-selected="modelValue === 'failing'"
         @click="setMode('failing')"
       >
-        <span class="mode-icon">&#9888;</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
         Test Failure
       </button>
       <button
         class="mode-btn"
         :class="{ active: modelValue === 'refactor', refactor: modelValue === 'refactor' }"
+        role="tab"
+        :aria-selected="modelValue === 'refactor'"
         @click="setMode('refactor')"
       >
-        <span class="mode-icon">&#9881;</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
         Refactor
       </button>
     </div>
@@ -96,15 +136,21 @@ function onInputBlur() {
           v-model="targetInput"
           :placeholder="placeholder"
           class="target-input"
+          role="combobox"
+          aria-autocomplete="list"
+          :aria-expanded="showDropdown && filteredNodes.length > 0"
           @focus="onInputFocus"
           @blur="onInputBlur"
-          @keydown.enter="analyze"
+          @keydown="onKeydown"
         />
-        <div v-if="showDropdown && filteredNodes.length > 0" class="dropdown">
+        <div v-if="showDropdown && filteredNodes.length > 0" class="dropdown" role="listbox">
           <div
-            v-for="node in filteredNodes"
+            v-for="(node, i) in filteredNodes"
             :key="node.id"
             class="dropdown-item"
+            :class="{ active: i === activeIndex }"
+            role="option"
+            :aria-selected="i === activeIndex"
             @mousedown.prevent="selectTarget(node.id)"
           >
             <span class="dropdown-label">{{ node.label }}</span>
@@ -154,13 +200,18 @@ function onInputBlur() {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s;
   white-space: nowrap;
 }
 
 .mode-btn:hover {
   color: #e2e8f0;
   background: #1e293b;
+}
+
+.mode-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .mode-btn.active.failing {
@@ -173,10 +224,6 @@ function onInputBlur() {
   background: rgba(245, 158, 11, 0.15);
   color: #f59e0b;
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
-}
-
-.mode-icon {
-  font-size: 14px;
 }
 
 .target-selector {
@@ -245,7 +292,8 @@ function onInputBlur() {
   transition: background 0.1s;
 }
 
-.dropdown-item:hover {
+.dropdown-item:hover,
+.dropdown-item.active {
   background: #334155;
 }
 
@@ -272,7 +320,7 @@ function onInputBlur() {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, box-shadow 0.2s;
   white-space: nowrap;
   color: #fff;
   background: #475569;
@@ -281,6 +329,11 @@ function onInputBlur() {
 .analyze-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.analyze-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .analyze-btn.failing-accent {
