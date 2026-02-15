@@ -48,10 +48,17 @@ function resolveImportPath(
     return path.relative(projectRoot, indexTs);
   }
 
-  // Try with .js extension (ESM compat — may map to .ts at build time)
-  const withJs = absoluteBase + '.js';
-  if (fs.existsSync(withJs)) {
-    return path.relative(projectRoot, withJs);
+  // ESM compat: import specifier may use .js extension mapping to .ts at build time
+  // e.g., import { X } from '../types/graph.js' -> resolve to ../types/graph.ts
+  if (importSpecifier.endsWith('.js')) {
+    const jsToTs = absoluteBase.replace(/\.js$/, '.ts');
+    if (fs.existsSync(jsToTs)) {
+      return path.relative(projectRoot, jsToTs);
+    }
+    const jsToVue = absoluteBase.replace(/\.js$/, '.vue');
+    if (fs.existsSync(jsToVue)) {
+      return path.relative(projectRoot, jsToVue);
+    }
   }
 
   // Could not resolve — return null
@@ -71,9 +78,7 @@ export function extractFromSourceFile(
 
   // --- Extract imports ---
   for (const decl of sourceFile.getImportDeclarations()) {
-    // Skip type-only imports
-    if (decl.isTypeOnly()) continue;
-
+    // Include type-only imports — they represent structural dependencies
     const specifier = decl.getModuleSpecifierValue();
     const resolved = resolveImportPath(specifier, currentFileDir, projectRoot);
     if (resolved) {

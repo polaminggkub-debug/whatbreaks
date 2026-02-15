@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
-import dagre from 'cytoscape-dagre';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
-
-cytoscape.use(dagre);
 
 const props = defineProps<{
   graph: Graph;
@@ -88,12 +85,7 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'text-wrap': 'ellipsis',
         'text-max-width': '80px',
         'overlay-padding': 4,
-        'shadow-blur': 8,
-        'shadow-color': 'data(color)',
-        'shadow-opacity': 0.3,
-        'shadow-offset-x': 0,
-        'shadow-offset-y': 2,
-        'transition-property': 'background-color, border-color, opacity, shadow-opacity',
+        'transition-property': 'background-color, border-color, opacity, border-width',
         'transition-duration': 250,
       } as unknown as cytoscape.Css.Node,
     },
@@ -108,7 +100,6 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       selector: 'node.hover',
       style: {
         'border-width': 3,
-        'shadow-opacity': 0.6,
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
     },
@@ -117,7 +108,6 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       style: {
         'border-width': 3,
         'border-color': '#ffffff',
-        'shadow-opacity': 0.8,
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
     },
@@ -125,36 +115,45 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       selector: 'node.impact-root',
       style: {
         'background-color': '#ef4444',
-        'border-color': '#ef4444',
-        'shadow-color': '#ef4444',
-        'shadow-opacity': 0.6,
+        'border-color': '#fca5a5',
+        'border-width': 3,
+        'width': 60,
+        'height': 36,
+        'font-size': '12px',
+        'font-weight': 700,
+        'color': '#fca5a5',
+        'z-index': 999,
       } as unknown as cytoscape.Css.Node,
     },
     {
       selector: 'node.impact-direct',
       style: {
         'background-color': '#f59e0b',
-        'border-color': '#f59e0b',
-        'shadow-color': '#f59e0b',
-        'shadow-opacity': 0.5,
+        'border-color': '#fcd34d',
+        'border-width': 3,
+        'color': '#fcd34d',
+        'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
     {
       selector: 'node.impact-indirect',
       style: {
         'background-color': '#eab308',
-        'border-color': '#eab308',
-        'shadow-color': '#eab308',
-        'shadow-opacity': 0.4,
+        'border-color': '#fde047',
+        'border-width': 2,
+        'color': '#fde047',
+        'z-index': 997,
       } as unknown as cytoscape.Css.Node,
     },
     {
       selector: 'node.impact-unaffected',
       style: {
-        'background-color': '#334155',
+        'background-color': '#1e293b',
         'border-color': '#334155',
-        'shadow-opacity': 0.0,
-        'opacity': 0.4,
+        'border-width': 1,
+        'opacity': 0.25,
+        'color': '#475569',
+        'font-size': '8px',
       } as unknown as cytoscape.Css.Node,
     },
     {
@@ -188,6 +187,14 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'target-arrow-color': '#ef4444',
         'opacity': 1,
         'width': 2.5,
+        'z-index': 998,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    {
+      selector: 'edge.impact-unaffected',
+      style: {
+        'opacity': 0.1,
+        'width': 0.5,
       } as unknown as cytoscape.Css.Edge,
     },
     {
@@ -207,27 +214,28 @@ function initCytoscape() {
     cy.value.destroy();
   }
 
+  const nodeCount = props.graph.nodes.length;
+
   const instance = cytoscape({
     container: containerRef.value,
     elements: buildElements(props.graph),
     style: getStylesheet(),
     layout: {
-      name: 'dagre',
-      rankDir: 'TB',
-      nodeSep: 50,
-      rankSep: 80,
-      edgeSep: 20,
-      padding: 40,
+      name: 'cose',
       animate: true,
-      animationDuration: 500,
-      sort: (a: cytoscape.SingularElementArgument, b: cytoscape.SingularElementArgument) => {
-        const aOrder = a.data('layerOrder') ?? 99;
-        const bOrder = b.data('layerOrder') ?? 99;
-        return aOrder - bOrder;
-      },
+      animationDuration: 800,
+      padding: 40,
+      nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
+      idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
+      edgeElasticity: () => 100,
+      gravity: 0.25,
+      numIter: 1000,
+      nodeDimensionsIncludeLabels: true,
+      fit: true,
+      randomize: false,
     } as unknown as cytoscape.LayoutOptions,
-    minZoom: 0.2,
-    maxZoom: 4,
+    minZoom: 0.1,
+    maxZoom: 5,
     wheelSensitivity: 0.3,
     boxSelectionEnabled: false,
   });
@@ -343,21 +351,32 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
     }
   }
 
-  // Mark unaffected nodes
+  // Mark unaffected nodes and edges
   instance.nodes().forEach(n => {
     if (!affectedNodeIds.has(n.id())) {
       n.addClass('impact-unaffected');
     }
   });
 
-  // Highlight edges between affected nodes
   instance.edges().forEach(e => {
     const src = e.source().id();
     const tgt = e.target().id();
     if (affectedNodeIds.has(src) && affectedNodeIds.has(tgt)) {
       e.addClass('impact-path');
+    } else {
+      e.addClass('impact-unaffected');
     }
   });
+
+  // Zoom to fit the affected subgraph so the user can see the impact
+  const affectedNodes = instance.nodes().filter(n => affectedNodeIds.has(n.id()));
+  if (affectedNodes.length > 0) {
+    instance.animate({
+      fit: { eles: affectedNodes, padding: 80 },
+      duration: 400,
+      easing: 'ease-out-cubic',
+    });
+  }
 }
 
 onMounted(() => {

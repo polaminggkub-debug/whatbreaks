@@ -60,6 +60,13 @@ export async function scanRepository(
   // Step 3: Build nodes
   const nodes: GraphNode[] = [];
 
+  // Count filenames to detect duplicates — use parent dir in label for disambiguation
+  const nameCount = new Map<string, number>();
+  for (const filePath of parsedFiles.keys()) {
+    const base = path.basename(filePath);
+    nameCount.set(base, (nameCount.get(base) ?? 0) + 1);
+  }
+
   for (const [filePath, parsed] of parsedFiles) {
     const layer = classifyLayer(filePath);
     const fileIsTest = isTestFile(filePath);
@@ -69,7 +76,11 @@ export async function scanRepository(
     // Extract function names from exports for the node
     const functions = parsed.exports;
 
-    const label = path.basename(filePath);
+    const baseName = path.basename(filePath);
+    // If filename is ambiguous (e.g. many index.ts), include parent dir
+    const label = (nameCount.get(baseName) ?? 0) > 1
+      ? path.join(path.basename(path.dirname(filePath)), baseName)
+      : baseName;
 
     nodes.push({
       id: filePath,
