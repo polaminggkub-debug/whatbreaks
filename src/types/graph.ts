@@ -10,6 +10,10 @@ export interface GraphNode {
   layer: NodeLayer;
   type: NodeType;
   functions: string[];
+  depth: number;
+  layerIndex: number;
+  fanIn: number;
+  size: number;
 }
 
 export interface GraphEdge {

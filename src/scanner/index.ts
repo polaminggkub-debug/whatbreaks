@@ -12,6 +12,7 @@ import type { ParsedFile } from './importParser.js';
 import { parseVueFile } from './vueParser.js';
 import { isTestFile, mapTestCoverage } from './testMapper.js';
 import { classifyLayer } from './layerClassifier.js';
+import { computeVisualMetrics } from '../engine/metrics.js';
 
 export { scanFiles } from './fileScanner.js';
 export { parseImports } from './importParser.js';
@@ -88,6 +89,10 @@ export async function scanRepository(
       layer,
       type: nodeType,
       functions,
+      depth: 0,
+      layerIndex: 0,
+      fanIn: 0,
+      size: 30,
     });
   }
 
@@ -110,8 +115,11 @@ export async function scanRepository(
   // Step 5: Build test-covers edges
   const testEdges = mapTestCoverage(parsedFiles);
 
-  // Step 6: Combine and return
+  // Step 6: Combine and compute visual metrics
   const edges = [...importEdges, ...testEdges];
+  const graph: Graph = { nodes, edges };
 
-  return { nodes, edges };
+  computeVisualMetrics(graph);
+
+  return graph;
 }

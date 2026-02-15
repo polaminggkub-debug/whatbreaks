@@ -54,6 +54,7 @@ async function copyCommand() {
 .command-block {
   background: #0f172a;
   border: 1px solid #334155;
+  border-left: 3px solid #14b8a6;
   border-radius: 6px;
   padding: 10px 12px;
   overflow-x: auto;
@@ -92,6 +93,11 @@ async function copyCommand() {
 .copy-btn:hover {
   background: #0d9488;
   box-shadow: 0 0 10px rgba(20, 184, 166, 0.3);
+}
+
+.copy-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
 }
 
 .copy-btn.copied {

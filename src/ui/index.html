@@ -4,13 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WhatBreaks — Codebase Intelligence Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+    body { background: #0f172a; color: #e2e8f0; font-family: 'Fira Sans', system-ui, sans-serif; overflow: hidden; }
     #app { width: 100vw; height: 100vh; }
+    .skip-link {
+      position: absolute;
+      left: -9999px;
+      top: auto;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      z-index: 9999;
+      padding: 12px 24px;
+      background: #22c55e;
+      color: #0f172a;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+      border-radius: 0 0 8px 0;
+    }
+    .skip-link:focus {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: auto;
+      height: auto;
+      outline: 2px solid #22c55e;
+      outline-offset: 2px;
+    }
   </style>
 </head>
 <body>
+  <a href="#main" class="skip-link">Skip to content</a>
   <div id="app"></div>
   <script type="module" src="./main.ts"></script>
 </body>

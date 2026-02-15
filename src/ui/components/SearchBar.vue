@@ -115,7 +115,7 @@ function onKeydown(e: KeyboardEvent) {
 <style scoped>
 .search-bar {
   position: relative;
-  width: 220px;
+  width: 200px;
   flex-shrink: 0;
 }
 
@@ -135,9 +135,10 @@ function onKeydown(e: KeyboardEvent) {
   border: 1px solid #334155;
   border-radius: 6px;
   color: #e2e8f0;
+  font-family: 'Fira Sans', sans-serif;
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .search-input::placeholder {
@@ -146,6 +147,7 @@ function onKeydown(e: KeyboardEvent) {
 
 .search-input:focus {
   border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 .search-dropdown {
@@ -218,6 +220,7 @@ function onKeydown(e: KeyboardEvent) {
   padding: 12px;
   text-align: center;
   font-size: 13px;
+  font-style: italic;
   color: #475569;
 }
 </style>

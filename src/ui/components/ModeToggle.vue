@@ -247,6 +247,7 @@ function onKeydown(e: KeyboardEvent) {
   border: 1px solid #334155;
   border-radius: 6px;
   color: #e2e8f0;
+  font-family: 'Fira Sans', sans-serif;
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -327,7 +328,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .analyze-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 

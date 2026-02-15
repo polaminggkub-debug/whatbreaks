@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Graph, GraphNode, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
-import { LAYER_COLORS, IMPACT_COLORS } from '../utils/constants';
+import { LAYER_COLORS, IMPACT_COLORS, DEPTH_LAYER_COLORS, DEPTH_LAYER_LABELS } from '../utils/constants';
 import TestCommand from './TestCommand.vue';
 
 const props = defineProps<{
@@ -31,6 +31,13 @@ const impactColor = computed(() => {
   if (!props.impact) return '#64748b';
   return IMPACT_COLORS[props.impact.status] ?? '#64748b';
 });
+
+const depthColor = computed(() =>
+  DEPTH_LAYER_COLORS[props.node.layerIndex ?? 0] ?? '#64748b'
+);
+const depthLabel = computed(() =>
+  DEPTH_LAYER_LABELS[props.node.layerIndex ?? 0] ?? 'Unknown'
+);
 
 const coveringTests = computed(() => {
   if (!props.graph) return [];
@@ -101,11 +108,29 @@ function copyPath() {
         </div>
       </div>
 
+      <!-- Depth & Fan-in -->
+      <div class="section row-section" v-if="node.depth !== undefined">
+        <div>
+          <div class="section-label">Depth</div>
+          <span class="metric">{{ node.depth }}</span>
+        </div>
+        <div>
+          <div class="section-label">Arch Layer</div>
+          <span class="badge" :style="{ background: depthColor }">
+            {{ depthLabel }}
+          </span>
+        </div>
+        <div>
+          <div class="section-label">Fan-in</div>
+          <span class="metric">{{ node.fanIn ?? 0 }}</span>
+        </div>
+      </div>
+
       <!-- Impact status -->
       <div class="section" v-if="impact">
         <div class="section-label">Impact Status</div>
         <div class="impact-status">
-          <span class="impact-dot" :style="{ background: impactColor }"></span>
+          <span class="impact-dot" :class="{ pulse: impact?.status === 'root' }" :style="{ background: impactColor }"></span>
           <span class="impact-text">{{ impactLabel }}</span>
         </div>
         <div class="impact-reason">{{ impact.reason }}</div>
@@ -167,7 +192,7 @@ function copyPath() {
   display: flex;
   flex-direction: column;
   z-index: 50;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+  box-shadow: -6px 0 24px rgba(0, 0, 0, 0.5);
 }
 
 .panel-header {
@@ -180,6 +205,7 @@ function copyPath() {
 }
 
 .panel-title {
+  font-family: 'Fira Code', monospace;
   font-size: 14px;
   font-weight: 600;
   color: #e2e8f0;
@@ -240,6 +266,8 @@ function copyPath() {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 6px;
+  padding-left: 8px;
+  border-left: 2px solid #334155;
 }
 
 .row-section {
@@ -264,6 +292,8 @@ function copyPath() {
 }
 
 .file-path code {
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
   color: #e2e8f0;
 }
 
@@ -281,6 +311,7 @@ function copyPath() {
   font-size: 11px;
   font-weight: 600;
   color: #fff;
+  letter-spacing: 0.3px;
 }
 
 .type-badge {
@@ -295,10 +326,19 @@ function copyPath() {
 }
 
 .impact-dot {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.impact-dot.pulse {
+  animation: impact-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes impact-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
 }
 
 .impact-text {
@@ -330,6 +370,7 @@ function copyPath() {
 }
 
 .func-item code {
+  font-family: 'Fira Code', monospace;
   color: #a5b4fc;
 }
 
@@ -344,14 +385,33 @@ function copyPath() {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0;
+  padding: 4px 6px;
   font-size: 12px;
   color: #94a3b8;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.test-item:hover {
+  background: #0f172a;
 }
 
 .no-tests {
   font-size: 12px;
   color: #475569;
   font-style: italic;
+}
+
+.metric {
+  font-family: 'Fira Code', monospace;
+  font-size: 18px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .impact-dot.pulse {
+    animation: none;
+  }
 }
 </style>

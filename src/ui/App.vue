@@ -6,6 +6,7 @@ import NodePanel from './components/NodePanel.vue';
 import ModeToggle from './components/ModeToggle.vue';
 import SearchBar from './components/SearchBar.vue';
 import Legend from './components/Legend.vue';
+import ViewControls from './components/ViewControls.vue';
 import { useImpact } from './composables/useImpact';
 import { useMode } from './composables/useMode';
 import { useDevSocket } from './composables/useDevSocket';
@@ -16,6 +17,11 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 
 const { mode, selectedTarget, setTarget, clear: clearMode } = useMode();
+
+const layoutMode = ref<'dagre' | 'cose'>('dagre');
+const showTests = ref(true);
+const showFoundation = ref(true);
+const sizeMode = ref<'fanIn' | 'uniform'>('fanIn');
 const { highlightResult, analyzeFailure, analyzeRefactor, clearHighlight } = useImpact(graph);
 const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
 
@@ -115,37 +121,54 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="logo">
-        <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <defs>
-            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ef4444" />
-              <stop offset="100%" stop-color="#f59e0b" />
-            </linearGradient>
-          </defs>
-          <polygon points="12 2, 22 8.5, 22 15.5, 12 22, 2 15.5, 2 8.5" />
-          <line x1="12" y1="2" x2="12" y2="22" />
-          <line x1="2" y1="8.5" x2="22" y2="8.5" />
-        </svg>
-        <span class="logo-text">WhatBreaks</span>
+      <div class="topbar-left">
+        <div class="logo">
+          <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <defs>
+              <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ef4444" />
+                <stop offset="100%" stop-color="#f59e0b" />
+              </linearGradient>
+            </defs>
+            <polygon points="12 2, 22 8.5, 22 15.5, 12 22, 2 15.5, 2 8.5" />
+            <line x1="12" y1="2" x2="12" y2="22" />
+            <line x1="2" y1="8.5" x2="22" y2="8.5" />
+          </svg>
+          <span class="logo-text">WhatBreaks</span>
+        </div>
+
+        <!-- Dev mode live indicator -->
+        <div v-if="isDevMode" class="dev-badge" :class="{ connected: isConnected }">
+          <span class="dev-dot"></span>
+          <span class="dev-label">{{ isConnected ? 'LIVE' : 'RECONNECTING' }}</span>
+        </div>
       </div>
 
-      <!-- Dev mode live indicator -->
-      <div v-if="isDevMode" class="dev-badge" :class="{ connected: isConnected }">
-        <span class="dev-dot"></span>
-        <span class="dev-label">{{ isConnected ? 'LIVE' : 'RECONNECTING' }}</span>
+      <div class="topbar-center">
+        <ModeToggle
+          :modelValue="mode"
+          :nodes="graph?.nodes ?? []"
+          @update:modelValue="onModeChange"
+          @analyze="onAnalyze"
+        />
       </div>
 
-      <ModeToggle
-        :modelValue="mode"
-        :nodes="graph?.nodes ?? []"
-        @update:modelValue="onModeChange"
-        @analyze="onAnalyze"
-      />
-      <SearchBar :nodes="graph?.nodes ?? []" @select="onNodeSelect" />
+      <div class="topbar-right">
+        <SearchBar :nodes="graph?.nodes ?? []" @select="onNodeSelect" />
+        <ViewControls
+          :layout="layoutMode"
+          :showTests="showTests"
+          :showFoundation="showFoundation"
+          :sizeMode="sizeMode"
+          @update:layout="layoutMode = $event"
+          @update:showTests="showTests = $event"
+          @update:showFoundation="showFoundation = $event"
+          @update:sizeMode="sizeMode = $event"
+        />
+      </div>
     </header>
 
-    <main class="main">
+    <main id="main" class="main">
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
         <p>Loading dependency graph...</p>
@@ -164,6 +187,10 @@ function onModeChange(newMode: 'failing' | 'refactor') {
         :graph="graph"
         :mode="mode"
         :highlightResult="highlightResult"
+        :layoutMode="layoutMode"
+        :showTests="showTests"
+        :showFoundation="showFoundation"
+        :sizeMode="sizeMode"
         @nodeClick="onNodeClick"
       />
       <div v-else class="empty-state">
@@ -201,7 +228,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   height: 100vh;
   background: #0f172a;
   color: #e2e8f0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .topbar {
@@ -212,6 +239,29 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   background: #1e293b;
   border-bottom: 1px solid #334155;
   z-index: 100;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topbar-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
 }
 
@@ -229,6 +279,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 }
 
 .logo-text {
+  font-family: 'Fira Code', monospace;
   background: linear-gradient(135deg, #ef4444, #f59e0b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -298,6 +349,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   height: 100%;
   gap: 16px;
   color: #94a3b8;
+  font-size: 15px;
 }
 
 .spinner {
@@ -321,6 +373,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 .empty-hint {
   font-size: 13px;
   color: #64748b;
+  line-height: 1.5;
 }
 
 .empty-hint code {
@@ -345,6 +398,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
 
 .stats {
   white-space: nowrap;
+  font-family: 'Fira Code', monospace;
 }
 
 .slide-enter-active {

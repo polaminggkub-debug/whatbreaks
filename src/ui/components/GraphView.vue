@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
+import cyDagre from 'cytoscape-dagre';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
 import { getFileIcon } from '../utils/fileIcons';
-import { LAYER_COLORS } from '../utils/constants';
+import { DEPTH_LAYER_COLORS } from '../utils/constants';
+
+cytoscape.use(cyDagre);
 
 const props = defineProps<{
   graph: Graph;
   mode: AnalysisMode;
   highlightResult?: FailingResult | RefactorResult | null;
+  layoutMode?: 'dagre' | 'cose';
+  showTests?: boolean;
+  showFoundation?: boolean;
+  sizeMode?: 'fanIn' | 'uniform';
 }>();
 
 const emit = defineEmits<{
@@ -21,32 +28,31 @@ let edgeAnimationId: number | null = null;
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const LAYER_ORDER: Record<string, number> = {
-  page: 0,
-  ui: 1,
-  feature: 2,
-  entity: 3,
-  shared: 4,
-  test: 5,
-  config: 6,
-};
-
-
 function buildElements(graph: Graph) {
-  const nodes = graph.nodes.map(n => ({
+  const filteredNodes = graph.nodes.filter(n => {
+    if (props.showTests === false && n.type === 'test') return false;
+    if (props.showFoundation === false && n.layerIndex === 0) return false;
+    return true;
+  });
+
+  const nodeIds = new Set(filteredNodes.map(n => n.id));
+
+  const nodes = filteredNodes.map(n => ({
     data: {
       id: n.id,
       label: n.label,
       layer: n.layer,
       type: n.type,
       functions: n.functions,
-      layerOrder: LAYER_ORDER[n.layer] ?? 99,
-      color: LAYER_COLORS[n.layer] ?? '#64748b',
+      color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
       icon: getFileIcon(n.id, n.type),
+      nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
+      layerIndex: n.layerIndex ?? 0,
+      fanIn: n.fanIn ?? 0,
+      depth: n.depth ?? 0,
     },
   }));
 
-  const nodeIds = new Set(graph.nodes.map(n => n.id));
   const edges = graph.edges
     .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
     .map((e, i) => ({
@@ -74,11 +80,14 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'background-height': '70%',
         'label': 'data(label)',
         'color': '#e2e8f0',
-        'font-size': '10px',
+        'font-size': '11px',
         'text-valign': 'bottom',
         'text-halign': 'center',
         'text-margin-y': 6,
-        'width': 36,
+        'text-background-color': '#0f172a',
+        'text-background-opacity': 0.75,
+        'text-background-padding': '2px',
+        'width': 'data(nodeSize)',
         'height': 36,
         'shape': 'roundrectangle',
         'border-width': 2,
@@ -101,6 +110,7 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node.hover',
       style: {
+        'background-color': '#334155',
         'border-width': 3,
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
@@ -108,6 +118,7 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node.selected-node',
       style: {
+        'background-color': '#334155',
         'border-width': 3,
         'border-color': '#ffffff',
         'z-index': 999,
@@ -120,7 +131,7 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'border-color': '#fca5a5',
         'border-width': 3,
         'width': 60,
-        'height': 36,
+        'height': 42,
         'font-size': '12px',
         'font-weight': 700,
         'color': '#fca5a5',
@@ -212,6 +223,41 @@ function getStylesheet(): cytoscape.Stylesheet[] {
   ];
 }
 
+function getLayoutConfig() {
+  const nodeCount = props.graph.nodes.length;
+  const currentLayout = props.layoutMode ?? 'dagre';
+
+  if (currentLayout === 'dagre') {
+    return {
+      name: 'dagre',
+      rankDir: 'BT',
+      nodeSep: 50,
+      edgeSep: 10,
+      rankSep: 80,
+      animate: !prefersReducedMotion,
+      animationDuration: prefersReducedMotion ? 0 : 800,
+      fit: true,
+      padding: 40,
+      rank: (node: any) => node.data('layerIndex'),
+    };
+  }
+
+  return {
+    name: 'cose',
+    animate: !prefersReducedMotion,
+    animationDuration: prefersReducedMotion ? 0 : 800,
+    padding: 40,
+    nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
+    idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
+    edgeElasticity: () => 100,
+    gravity: 0.25,
+    numIter: 1000,
+    nodeDimensionsIncludeLabels: true,
+    fit: true,
+    randomize: false,
+  };
+}
+
 function initCytoscape() {
   if (!containerRef.value || !props.graph) return;
 
@@ -219,26 +265,11 @@ function initCytoscape() {
     cy.value.destroy();
   }
 
-  const nodeCount = props.graph.nodes.length;
-
   const instance = cytoscape({
     container: containerRef.value,
     elements: buildElements(props.graph),
     style: getStylesheet(),
-    layout: {
-      name: 'cose',
-      animate: !prefersReducedMotion,
-      animationDuration: prefersReducedMotion ? 0 : 800,
-      padding: 40,
-      nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
-      idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
-      edgeElasticity: () => 100,
-      gravity: 0.25,
-      numIter: 1000,
-      nodeDimensionsIncludeLabels: true,
-      fit: true,
-      randomize: false,
-    } as unknown as cytoscape.LayoutOptions,
+    layout: getLayoutConfig() as unknown as cytoscape.LayoutOptions,
     minZoom: 0.1,
     maxZoom: 5,
     wheelSensitivity: 0.3,
@@ -287,7 +318,7 @@ function startEdgeAnimation() {
   if (prefersReducedMotion || !cy.value) return;
 
   let offset = 0;
-  const speed = 0.3;
+  const speed = 0.5;
 
   function tick() {
     if (!cy.value) return;
@@ -308,10 +339,8 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   if (!cy.value) return;
   const instance = cy.value;
 
-  // Stop any running edge animation
   stopEdgeAnimation();
 
-  // Clear all impact classes
   instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected');
   instance.edges().removeClass('impact-path impact-unaffected');
 
@@ -322,14 +351,12 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   if (result.mode === 'failing') {
     const failing = result as FailingResult;
 
-    // Root: the test itself
     const testNode = instance.getElementById(failing.test);
     if (testNode.length) {
       testNode.addClass('impact-root');
       affectedNodeIds.add(failing.test);
     }
 
-    // Chain nodes
     for (const cn of failing.chain) {
       const node = instance.getElementById(cn.nodeId);
       if (node.length) {
@@ -342,7 +369,6 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
       }
     }
 
-    // Other tests at risk
     for (const t of failing.otherTestsAtRisk) {
       const node = instance.getElementById(t);
       if (node.length && !affectedNodeIds.has(t)) {
@@ -353,14 +379,12 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   } else {
     const refactor = result as RefactorResult;
 
-    // Root: the refactored file
     const rootNode = instance.getElementById(refactor.file);
     if (rootNode.length) {
       rootNode.addClass('impact-root');
       affectedNodeIds.add(refactor.file);
     }
 
-    // Direct importers
     for (const f of refactor.direct_importers) {
       const node = instance.getElementById(f);
       if (node.length) {
@@ -369,7 +393,6 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
       }
     }
 
-    // Transitive affected
     for (const f of refactor.transitive_affected) {
       const node = instance.getElementById(f);
       if (node.length && !affectedNodeIds.has(f)) {
@@ -378,7 +401,6 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
       }
     }
 
-    // Tests to run
     for (const t of refactor.tests_to_run) {
       const node = instance.getElementById(t);
       if (node.length && !affectedNodeIds.has(t)) {
@@ -388,7 +410,6 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
     }
   }
 
-  // Mark unaffected nodes and edges
   instance.nodes().forEach(n => {
     if (!affectedNodeIds.has(n.id())) {
       n.addClass('impact-unaffected');
@@ -405,10 +426,8 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
     }
   });
 
-  // Start flowing animation on impact edges
   startEdgeAnimation();
 
-  // Zoom to fit the affected subgraph so the user can see the impact
   const affectedNodes = instance.nodes().filter(n => affectedNodeIds.has(n.id()));
   if (affectedNodes.length > 0) {
     instance.animate({
@@ -438,6 +457,10 @@ watch(() => props.graph, () => {
 watch(() => props.highlightResult, (result) => {
   applyHighlight(result ?? null);
 }, { deep: true });
+
+watch(() => [props.layoutMode, props.showTests, props.showFoundation, props.sizeMode], () => {
+  initCytoscape();
+});
 </script>
 
 <template>
@@ -448,7 +471,9 @@ watch(() => props.highlightResult, (result) => {
 .graph-container {
   width: 100%;
   height: 100%;
-  background: transparent;
+  background:
+    radial-gradient(circle, #1e293b 1px, transparent 1px);
+  background-size: 24px 24px;
   cursor: grab;
 }
 
