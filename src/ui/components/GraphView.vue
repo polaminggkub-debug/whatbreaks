@@ -36,6 +36,29 @@ const LAYER_ORDER: Record<string, number> = {
   config: 6,
 };
 
+// File type icons from Devicon (MIT license) + custom SVGs
+// https://github.com/devicons/devicon
+function svgToDataUri(svg: string): string {
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+const FILE_ICONS: Record<string, string> = {
+  ts: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="12" fill="#3178c6"/><path fill="#fff" d="M72.18 63.14v5.12H55.94v46.24H44.43V68.26H28.16v-5a49.19 49.19 0 01.12-5.17c.08-.09 9.96-.09 21.96-.09h21.93z"/><path fill="#fff" d="M95.76 63.05a15.56 15.56 0 017.82 4.5 20.58 20.58 0 013 4c0 .16-5.4 3.81-8.69 5.85-.12.08-.6-.44-1.13-1.23a7.09 7.09 0 00-5.87-3.53c-3.79-.26-6.23 1.73-6.21 5a4.58 4.58 0 00.54 2.34c.83 1.73 2.38 2.76 7.24 4.86 8.95 3.85 12.78 6.39 15.16 10 2.66 4 3.25 10.46 1.45 15.24-2 5.2-6.9 8.73-13.83 9.9a38.32 38.32 0 01-9.52-.1 23 23 0 01-12.72-6.63c-1.15-1.27-3.39-4.58-3.25-4.82a9.34 9.34 0 011.15-.73l4.52-2.6 3.59-2.08.75 1.11a16.78 16.78 0 004.74 4.54c4 2.1 9.46 1.81 12.16-.62a5.43 5.43 0 00.69-6.92c-1-1.39-3-2.56-8.59-5-6.45-2.78-9.23-4.5-11.77-7.24a16.48 16.48 0 01-3.43-6.25 25 25 0 01-.22-8c1.33-6.23 6-10.58 12.82-11.87a31.66 31.66 0 019.49.26z"/></svg>`),
+
+  vue: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="12" fill="#2d3748"/><path d="M26 22l23 .01L64.04 46.4 79.02 22.03 102 22 64.15 87.05z" fill="#35495e" transform="translate(0,12) scale(0.82) translate(12,0)"/><path d="M.91 22l25.07-.17 38.15 65.66L102 22l25.11.03-63 108.06z" fill="#41b883" transform="translate(0,12) scale(0.82) translate(12,0)"/></svg>`),
+
+  test: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="12" fill="#0d9488"/><path d="M52 24h24v28l20 36a8 8 0 01-7 12H39a8 8 0 01-7-12l20-36V24z" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M48 24h32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M44 80c8-4 16 4 24 0s16 4 24 0" fill="none" stroke="#5eead4" stroke-width="4" stroke-linecap="round"/><circle cx="56" cy="90" r="4" fill="#5eead4"/><circle cx="72" cy="86" r="3" fill="#5eead4"/></svg>`),
+
+  config: svgToDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" rx="12" fill="#475569"/><path d="M64 40a24 24 0 110 48 24 24 0 010-48zm0 8a16 16 0 100 32 16 16 0 000-32z" fill="#e2e8f0"/><path d="M60 20h8v12h-8zM60 96h8v12h-8zM96 60v8H84v-8zm-64 0v8H20v-8zM85.8 33.4l5.6 5.6-8.5 8.5-5.6-5.6zm-49.2 49.2l5.6 5.6-8.5 8.5-5.6-5.6zm57.8 0l-8.5 8.5 5.6 5.6 8.5-8.5zM36.6 33.4l-8.5 8.5 5.6 5.6 8.5-8.5z" fill="#94a3b8"/></svg>`),
+};
+
+function getFileIcon(nodeId: string, nodeType: string): string {
+  if (nodeType === 'test') return FILE_ICONS.test;
+  if (nodeId.endsWith('.vue')) return FILE_ICONS.vue;
+  if (nodeId.includes('config') || nodeId.includes('.config.')) return FILE_ICONS.config;
+  return FILE_ICONS.ts;
+}
+
 function buildElements(graph: Graph) {
   const nodes = graph.nodes.map(n => ({
     data: {
@@ -46,6 +69,7 @@ function buildElements(graph: Graph) {
       functions: n.functions,
       layerOrder: LAYER_ORDER[n.layer] ?? 99,
       color: LAYER_COLORS[n.layer] ?? '#64748b',
+      icon: getFileIcon(n.id, n.type),
     },
   }));
 
@@ -69,15 +93,20 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node',
       style: {
-        'background-color': 'data(color)',
+        'background-color': '#1e293b',
+        'background-image': 'data(icon)',
+        'background-fit': 'contain',
+        'background-clip': 'none',
+        'background-width': '70%',
+        'background-height': '70%',
         'label': 'data(label)',
         'color': '#e2e8f0',
         'font-size': '10px',
         'text-valign': 'bottom',
         'text-halign': 'center',
         'text-margin-y': 6,
-        'width': 50,
-        'height': 30,
+        'width': 36,
+        'height': 36,
         'shape': 'roundrectangle',
         'border-width': 2,
         'border-color': 'data(color)',
