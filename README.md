@@ -2,12 +2,12 @@
 
 **You changed a file. What just broke?**
 
-WhatBreaks scans your TypeScript project and builds a map of how every file connects to every other file. Then it answers two questions:
+WhatBreaks scans your project — no matter what language — and builds a map of how every file connects to every other file. Then it answers two questions:
 
 1. **A test is failing** — which file should I actually look at?
 2. **I want to change a file** — what's going to break?
 
-That's it. No AI magic. It just reads your imports and draws you a map.
+That's it. No AI magic. It just reads your code and draws you a map.
 
 ## See it in action (30 seconds)
 
@@ -55,7 +55,7 @@ Your code ──→ whatbreaks scan ──→ .whatbreaks/graph.json ──→ w
                                                          ──→ whatbreaks refactor (CLI)
 ```
 
-1. **Scan** reads every `.ts` and `.vue` file, looks at the `import` lines, and saves a map
+1. **Scan** reads your files, figures out which ones talk to each other, and saves a map
 2. **Serve** shows that map as an interactive graph in your browser
 3. **Failing/Refactor** walks that map to answer your question
 
@@ -99,9 +99,19 @@ WhatBreaks answers that in seconds.
 
 ## Works with
 
-- TypeScript projects
-- Vue single-file components (`.vue`)
-- Any test framework (Vitest, Jest, Playwright — it reads imports, not test runners)
+- **TypeScript / JavaScript** — `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`
+- **Vue** — `.vue`
+- **Python** — `.py`
+- **Go** — `.go`
+- **Rust** — `.rs`
+- **PHP** — `.php` (including Laravel projects)
+- **Ruby** — `.rb`
+- **Test files** — automatically found and mapped to the files they test:
+  - `.spec.ts`, `.test.ts` (JS/TS)
+  - `_test.go` (Go)
+  - `test_*.py`, `*_test.py` (Python)
+  - `*Test.php` (PHP)
+  - `*_spec.rb`, `*_test.rb` (Ruby)
 
 ## License
 

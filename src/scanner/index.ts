@@ -7,12 +7,11 @@ import type {
   ScanConfig,
 } from '../types/graph.js';
 import { scanFiles } from './fileScanner.js';
-import { parseImports } from './importParser.js';
 import type { ParsedFile } from './importParser.js';
-import { parseVueFile } from './vueParser.js';
 import { isTestFile, mapTestCoverage } from './testMapper.js';
 import { classifyLayer } from './layerClassifier.js';
 import { computeVisualMetrics } from '../engine/metrics.js';
+import { getParserForFile } from './parsers/index.js';
 
 export { scanFiles } from './fileScanner.js';
 export { parseImports } from './importParser.js';
@@ -20,11 +19,13 @@ export type { ParsedFile } from './importParser.js';
 export { parseVueFile } from './vueParser.js';
 export { isTestFile, mapTestCoverage } from './testMapper.js';
 export { classifyLayer } from './layerClassifier.js';
+export { getParserForFile } from './parsers/index.js';
+export type { LanguageParser } from './parsers/index.js';
 
 /**
  * Scan a repository directory and build a complete dependency graph.
  *
- * 1. Discovers all .ts and .vue files
+ * 1. Discovers all supported source files
  * 2. Parses each file for imports and exports
  * 3. Classifies files into architectural layers
  * 4. Creates graph nodes and edges (import + test-covers)
@@ -43,14 +44,13 @@ export async function scanRepository(
 
   for (const filePath of filePaths) {
     try {
-      let parsed: ParsedFile;
-
-      if (filePath.endsWith('.vue')) {
-        parsed = parseVueFile(filePath, projectRoot);
-      } else {
-        parsed = parseImports(filePath, projectRoot);
+      const parser = getParserForFile(filePath);
+      if (!parser) {
+        // No parser for this extension — skip
+        continue;
       }
 
+      const parsed = parser.parseFile(filePath, projectRoot);
       parsedFiles.set(filePath, parsed);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
