@@ -14,6 +14,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   close: [];
+  navigateToNode: [nodeId: string];
 }>();
 
 const impactLabel = computed(() => {
@@ -45,7 +46,7 @@ const coveringTests = computed(() => {
     .filter(e => e.type === 'test-covers' && e.target === props.node.id)
     .map(e => {
       const testNode = props.graph!.nodes.find(n => n.id === e.source);
-      return testNode ? testNode.label : e.source;
+      return { id: e.source, label: testNode ? testNode.label : e.source };
     });
 });
 
@@ -55,7 +56,7 @@ const importedBy = computed(() => {
     .filter(e => e.type === 'import' && e.target === props.node.id)
     .map(e => {
       const srcNode = props.graph!.nodes.find(n => n.id === e.source);
-      return srcNode ? srcNode.label : e.source;
+      return { id: e.source, label: srcNode ? srcNode.label : e.source };
     });
 });
 
@@ -150,7 +151,7 @@ function copyPath() {
       <div class="section" v-if="importedBy.length > 0">
         <div class="section-label">Imported by ({{ importedBy.length }})</div>
         <ul class="dep-list">
-          <li v-for="dep in importedBy" :key="dep" class="dep-item">{{ dep }}</li>
+          <li v-for="dep in importedBy" :key="dep.id" class="dep-item dep-link" @click="emit('navigateToNode', dep.id)">{{ dep.label }}</li>
         </ul>
       </div>
 
@@ -158,11 +159,11 @@ function copyPath() {
       <div class="section" v-if="coveringTests.length > 0">
         <div class="section-label">Tests covering this file ({{ coveringTests.length }})</div>
         <ul class="test-list">
-          <li v-for="t in coveringTests" :key="t" class="test-item">
+          <li v-for="t in coveringTests" :key="t.id" class="test-item dep-link" @click="emit('navigateToNode', t.id)">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="#14b8a6" stroke="none">
               <polygon points="5,3 19,12 5,21" />
             </svg>
-            {{ t }}
+            {{ t.label }}
           </li>
         </ul>
       </div>
@@ -379,6 +380,18 @@ function copyPath() {
   font-size: 12px;
   color: #94a3b8;
   border-bottom: 1px solid #1e293b;
+}
+
+.dep-link {
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.dep-link:hover {
+  background: #0f172a;
+  color: #a5b4fc;
 }
 
 .test-item {

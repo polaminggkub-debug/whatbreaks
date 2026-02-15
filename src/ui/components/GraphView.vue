@@ -125,6 +125,14 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       } as unknown as cytoscape.Css.Node,
     },
     {
+      selector: 'node.selected-neighbor',
+      style: {
+        'background-color': '#334155',
+        'border-width': 3,
+        'z-index': 998,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
       selector: 'node.impact-root',
       style: {
         'background-color': '#ef4444',
@@ -191,6 +199,16 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'opacity': 1,
         'width': 2.5,
         'z-index': 999,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    {
+      selector: 'edge.selected-connected',
+      style: {
+        'line-color': '#94a3b8',
+        'target-arrow-color': '#94a3b8',
+        'opacity': 1,
+        'width': 2.5,
+        'z-index': 998,
       } as unknown as cytoscape.Css.Edge,
     },
     {
@@ -278,14 +296,20 @@ function initCytoscape() {
 
   instance.on('tap', 'node', (evt) => {
     const nodeId = evt.target.id();
-    instance.nodes().removeClass('selected-node');
+    // Clear previous selection
+    instance.nodes().removeClass('selected-node selected-neighbor');
+    instance.edges().removeClass('selected-connected');
+    // Apply persistent selection
     evt.target.addClass('selected-node');
+    evt.target.connectedEdges().addClass('selected-connected');
+    evt.target.neighborhood('node').addClass('selected-neighbor');
     emit('nodeClick', nodeId);
   });
 
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
-      instance.nodes().removeClass('selected-node');
+      instance.nodes().removeClass('selected-node selected-neighbor');
+      instance.edges().removeClass('selected-connected');
     }
   });
 
@@ -341,8 +365,8 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
 
   stopEdgeAnimation();
 
-  instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected');
-  instance.edges().removeClass('impact-path impact-unaffected');
+  instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected selected-neighbor');
+  instance.edges().removeClass('impact-path impact-unaffected selected-connected');
 
   if (!result) return;
 
@@ -461,6 +485,28 @@ watch(() => props.highlightResult, (result) => {
 watch(() => [props.layoutMode, props.showTests, props.showFoundation, props.sizeMode], () => {
   initCytoscape();
 });
+
+function focusNode(nodeId: string) {
+  if (!cy.value) return;
+  const instance = cy.value;
+  const node = instance.getElementById(nodeId);
+  if (!node.length) return;
+
+  instance.nodes().removeClass('selected-node selected-neighbor');
+  instance.edges().removeClass('selected-connected');
+  node.addClass('selected-node');
+  node.connectedEdges().addClass('selected-connected');
+  node.neighborhood('node').addClass('selected-neighbor');
+
+  instance.animate({
+    center: { eles: node },
+    zoom: Math.max(instance.zoom(), 1.2),
+    duration: 400,
+    easing: 'ease-out-cubic',
+  });
+}
+
+defineExpose({ focusNode });
 </script>
 
 <template>

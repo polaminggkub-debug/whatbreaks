@@ -15,6 +15,7 @@ const graph = ref<Graph | null>(null);
 const selectedNode = ref<GraphNode | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
+const graphViewRef = ref<InstanceType<typeof GraphView> | null>(null);
 
 const { mode, selectedTarget, setTarget, clear: clearMode } = useMode();
 
@@ -116,6 +117,14 @@ function onModeChange(newMode: 'failing' | 'refactor') {
   clearMode();
   selectedNode.value = null;
 }
+
+function onNavigateToNode(nodeId: string) {
+  if (!graph.value) return;
+  const node = graph.value.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  selectedNode.value = node;
+  graphViewRef.value?.focusNode(nodeId);
+}
 </script>
 
 <template>
@@ -184,6 +193,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
       </div>
       <GraphView
         v-else-if="graph"
+        ref="graphViewRef"
         :graph="graph"
         :mode="mode"
         :highlightResult="highlightResult"
@@ -207,6 +217,7 @@ function onModeChange(newMode: 'failing' | 'refactor') {
           :graph="graph"
           :highlightResult="highlightResult"
           @close="selectedNode = null"
+          @navigateToNode="onNavigateToNode"
         />
       </transition>
     </main>
