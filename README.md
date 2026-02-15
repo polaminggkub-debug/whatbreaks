@@ -1,90 +1,107 @@
 # WhatBreaks
 
-**AI-Powered Codebase Intelligence Map**
+**You changed a file. What just broke?**
 
-> When a test fails, see the blast radius in 2 seconds. No reading the entire repo.
-> When you refactor a file, know exactly what breaks before you touch it.
+WhatBreaks scans your TypeScript project and builds a map of how every file connects to every other file. Then it answers two questions:
+
+1. **A test is failing** — which file should I actually look at?
+2. **I want to change a file** — what's going to break?
+
+That's it. No AI magic. It just reads your imports and draws you a map.
+
+## See it in action (30 seconds)
+
+```bash
+npx whatbreaks scan ./src     # Point it at your code
+npx whatbreaks serve          # Opens a visual map in your browser
+```
+
+You'll see every file as a dot, every import as a line. Click any file to see what depends on it.
+
+## The two things it does
+
+### 1. "My test is failing. Why?"
+
+```bash
+npx whatbreaks failing tests/auth.spec.ts
+```
+
+You get a list of files to check, **deepest dependency first**. Instead of reading 50 files, you start with the one most likely to be the problem.
+
+### 2. "I want to change this file. What will break?"
+
+```bash
+npx whatbreaks refactor src/utils/parser.ts
+```
+
+You get:
+- Every file that depends on this one (directly or indirectly)
+- Every test you need to run
+- A copy-paste test command
 
 ## Install
 
 ```bash
 npm install -g whatbreaks
-
-# Or run without installing:
-npx whatbreaks scan ./src
 ```
 
-## Quick Start
+Or just use `npx whatbreaks` without installing.
 
-```bash
-# 1. Scan your codebase
-whatbreaks scan ./src
+## How it works (the simple version)
 
-# 2. Open interactive visualization
-whatbreaks serve
-
-# 3. Analyze a failing test
-whatbreaks failing tests/e2e/payroll-upload.spec.ts
-
-# 4. Check blast radius before refactoring
-whatbreaks refactor src/shared/lib/payroll/excelParser.ts
+```
+Your code ──→ whatbreaks scan ──→ .whatbreaks/graph.json ──→ whatbreaks serve (visual map)
+                                                         ──→ whatbreaks failing (CLI)
+                                                         ──→ whatbreaks refactor (CLI)
 ```
 
-## Two Core Modes
+1. **Scan** reads every `.ts` and `.vue` file, looks at the `import` lines, and saves a map
+2. **Serve** shows that map as an interactive graph in your browser
+3. **Failing/Refactor** walks that map to answer your question
 
-### Test Failure Mode ("What broke?")
+No database. No backend. Just a JSON file.
 
-```bash
-whatbreaks failing <test-file>
-whatbreaks failing <test-file> --json    # For AI tools
-```
+## All commands
 
-Traces from the failing test through its import chain to find the most likely root cause (deepest dependency).
+| Command | What it does |
+|---------|-------------|
+| `whatbreaks scan <dir>` | Read your code and build the map |
+| `whatbreaks serve` | Open the visual map in your browser |
+| `whatbreaks failing <test>` | Find root cause of a failing test |
+| `whatbreaks refactor <file>` | See what breaks if you change a file |
+| `whatbreaks impact <file>` | See all connections (both directions) |
+| `whatbreaks hotspots` | Find the most depended-on files |
+| `whatbreaks report` | Overall codebase health check |
+| `whatbreaks circular` | Find circular dependencies |
+| `whatbreaks chains` | Find the deepest dependency chains |
 
-### Refactor Mode ("What will break?")
+Add `--json` to any command to get machine-readable output (useful for AI coding tools like Claude Code, Cursor, etc).
 
-```bash
-whatbreaks refactor <file>
-whatbreaks refactor <file> --json        # For AI tools
-whatbreaks refactor <file> --tests-only  # Just show tests to run
-```
+## The web UI
 
-Shows every file and test affected by changing this file, plus the exact test command to run.
+The interactive map lets you:
 
-## AI Tool Integration
+- **Switch modes** — toggle between "test failure" and "refactor" analysis
+- **Search** — find any file by name
+- **Click a file** — see its imports, tests, and connections in a side panel
+- **See the impact** — affected files light up, unaffected ones fade out
+- **Toggle layers** — show/hide test files, config files, etc.
 
-Works with any AI coding tool that can run shell commands:
+## Who is this for?
 
-```bash
-# AI runs this before making changes:
-whatbreaks refactor src/shared/lib/payroll/excelParser.ts --json
-```
+Developers who move fast (especially with AI tools) and need a quick way to understand their codebase without reading every file. If you've ever thought:
 
-Returns structured JSON for Claude Code, ChatGPT Codex, Cursor, Windsurf, Aider, etc.
+- "I changed one file and 30 tests broke... which file actually caused it?"
+- "Is it safe to refactor this? What depends on it?"
+- "I just joined this project. How does it all connect?"
 
-## All Commands
+WhatBreaks answers that in seconds.
 
-```bash
-whatbreaks scan <dir>              # Scan codebase, generate graph
-whatbreaks serve [--port 4567]     # Interactive web UI
-whatbreaks failing <test-file>     # Test failure root cause
-whatbreaks refactor <file>         # Blast radius + affected tests
-whatbreaks impact <file>           # Forward + backward impact
-whatbreaks report                  # Full health report
-whatbreaks hotspots [--top 10]     # Highest blast-radius files
-whatbreaks circular                # Circular dependency detection
-whatbreaks chains [--top 5]        # Deepest dependency chains
-```
+## Works with
 
-All commands support `--json` for machine consumption.
-
-## Tech Stack
-
-- **Scanner:** ts-morph (AST-based, handles TypeScript + Vue SFC)
-- **Graph UI:** Vue 3 + Cytoscape.js (dagre layout, dark theme)
-- **CLI:** Commander.js + chalk + ora
-
-No backend. No database. No server (except static file server for UI).
+- TypeScript projects
+- Vue single-file components (`.vue`)
+- Any test framework (Vitest, Jest, Playwright — it reads imports, not test runners)
 
 ## License
 
