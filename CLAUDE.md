@@ -1,8 +1,8 @@
-# WhatBreaks - AI-Powered Codebase Intelligence Map
+# WhatBreaks - Codebase Intelligence Map
 
 ## What This Project Is
 
-A CLI tool + web UI that scans TypeScript/Vue codebases, builds dependency + test mapping graphs, and provides two core modes:
+A CLI tool + web UI that scans codebases (any language), builds dependency + test mapping graphs, and provides two core modes:
 1. **Test Failure Mode** — test fails -> shows which files to investigate (deepest-first)
 2. **Refactor Mode** — pick a file -> shows blast radius + affected tests
 
@@ -11,18 +11,21 @@ Target users: "vibe coders" who build fast with AI tools but need a codebase map
 ## Tech Stack
 
 - **Language:** TypeScript (ESM)
-- **Scanner:** ts-morph (AST-based import parsing)
+- **Scanner:** ts-morph (TS/JS/Vue) + regex-based parsers (Python, Go, Rust, PHP, Ruby)
 - **CLI:** Commander.js + chalk + ora
 - **Graph UI:** Vue 3 + Cytoscape.js (cose layout)
 - **Build:** tsup (CLI), Vite (UI)
 - **Package:** npm (`npx whatbreaks`)
 
-## Architecture
+## Architecture (NOT FSD)
+
+This project does NOT use Feature-Sliced Design. It uses a **domain-based architecture** organized by responsibility, not by FSD layers. Do not restructure into FSD.
 
 ```
 src/
 ├── cli/          # Commander CLI commands (scan, serve, failing, refactor, impact, report)
-├── scanner/      # ts-morph-based repo scanning (files, imports, Vue SFC, tests, layers)
+├── scanner/      # Multi-language import parsing (files, imports, tests, layers)
+│   └── parsers/  # Language-specific parsers (typescript, python, go, rust, php, ruby)
 ├── engine/       # Impact analysis (BFS forward/backward, risk analysis)
 ├── ui/           # Vue 3 + Cytoscape.js web visualization
 └── types/        # Shared TypeScript types (Graph, Node, Edge, ImpactResult)
@@ -87,6 +90,16 @@ The hub file `demo/src/core/damage/damageCalculator.ts` cascades to 170+ tests w
 - **`SPEC_MVP.md`** — Current focus. Work from this. All MVP scope defined here.
 - `SPEC_VISION.md` — Full product vision. Reference only, don't implement beyond MVP.
 - `SPEC_DEV_RUNTIME.md` — Future phases (watcher, git diff, AI, MCP). Don't touch until MVP ships.
+
+## Supported Languages
+
+- **TypeScript/JavaScript** — ts-morph AST parser (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`)
+- **Vue** — SFC script block extraction + ts-morph (`.vue`)
+- **Python** — regex parser: `import`, `from X import`, relative imports (`.py`)
+- **Go** — regex parser: reads `go.mod`, resolves internal packages (`.go`)
+- **Rust** — regex parser: `use crate::`, `mod`, `super::` (`.rs`)
+- **PHP** — regex parser: PSR-4 via `composer.json`, Laravel convention (`.php`)
+- **Ruby** — regex parser: `require`, `require_relative` (`.rb`)
 
 ## Layer Classification
 
