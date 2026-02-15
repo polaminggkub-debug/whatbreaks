@@ -17,9 +17,7 @@ Target users: "vibe coders" who build fast with AI tools but need a codebase map
 - **Build:** tsup (CLI), Vite (UI)
 - **Package:** npm (`npx whatbreaks`)
 
-## Architecture (NOT FSD)
-
-This project does NOT use Feature-Sliced Design. It uses a **domain-based architecture** organized by responsibility, not by FSD layers. Do not restructure into FSD.
+## Architecture
 
 ```
 src/
