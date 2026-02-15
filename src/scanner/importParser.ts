@@ -30,22 +30,22 @@ function resolveImportPath(
     return path.relative(projectRoot, absoluteBase);
   }
 
-  // Try with .ts extension
-  const withTs = absoluteBase + '.ts';
-  if (fs.existsSync(withTs)) {
-    return path.relative(projectRoot, withTs);
+  // Try common extensions in priority order
+  const tryExts = ['.ts', '.tsx', '.js', '.jsx', '.vue', '.svelte', '.astro'];
+  for (const ext of tryExts) {
+    const withExt = absoluteBase + ext;
+    if (fs.existsSync(withExt)) {
+      return path.relative(projectRoot, withExt);
+    }
   }
 
-  // Try with .vue extension
-  const withVue = absoluteBase + '.vue';
-  if (fs.existsSync(withVue)) {
-    return path.relative(projectRoot, withVue);
-  }
-
-  // Try as directory with index.ts
-  const indexTs = path.join(absoluteBase, 'index.ts');
-  if (fs.existsSync(indexTs)) {
-    return path.relative(projectRoot, indexTs);
+  // Try as directory with index file
+  const indexExts = ['index.ts', 'index.tsx', 'index.js'];
+  for (const idx of indexExts) {
+    const indexPath = path.join(absoluteBase, idx);
+    if (fs.existsSync(indexPath)) {
+      return path.relative(projectRoot, indexPath);
+    }
   }
 
   // ESM compat: import specifier may use .js extension mapping to .ts at build time

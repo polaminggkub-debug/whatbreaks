@@ -6,7 +6,26 @@ const DEFAULT_EXCLUDE_DIRS = new Set([
   'node_modules', 'dist', '.git', '.whatbreaks', '.nuxt', '.output', 'coverage',
 ]);
 
-const SUPPORTED_EXTENSIONS = new Set(['.ts', '.vue']);
+const SUPPORTED_EXTENSIONS = new Set([
+  // TypeScript / JavaScript
+  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts',
+  // Frameworks
+  '.vue', '.svelte', '.astro',
+  // Styles
+  '.css', '.scss', '.sass', '.less',
+  // Markup & Data
+  '.html', '.htm', '.json', '.yaml', '.yml',
+  // Systems languages
+  '.go', '.rs', '.c', '.h', '.cpp', '.cc', '.hpp',
+  // JVM / Mobile
+  '.java', '.kt', '.kts', '.swift', '.dart',
+  // Scripting
+  '.py', '.rb', '.php',
+  // .NET
+  '.cs',
+  // Query / Schema
+  '.sql', '.graphql', '.gql', '.prisma',
+]);
 
 export async function scanFiles(
   dir: string,

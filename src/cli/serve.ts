@@ -19,7 +19,11 @@ export function registerServeCommand(program: Command): void {
     .action(async (opts: { port: string; highlight?: string; failing?: string; refactor?: string }) => {
       const port = parseInt(opts.port, 10);
       const graphPath = resolve(process.cwd(), '.whatbreaks/graph.json');
-      const uiPath = resolve(__dirname, '../ui');
+
+      // Try dist/ui (built output) first, then fall back to __dirname relative
+      const distUiPath = resolve(__dirname, '../../dist/ui');
+      const srcUiPath = resolve(__dirname, '../ui');
+      const uiPath = existsSync(resolve(distUiPath, 'index.html')) ? distUiPath : srcUiPath;
 
       if (!existsSync(graphPath)) {
         console.error(chalk.red("\n  Graph not found. Run 'whatbreaks scan' first.\n"));
