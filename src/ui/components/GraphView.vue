@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
 import cyDagre from 'cytoscape-dagre';
-import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
+import type { Graph, AnalysisMode, FailingResult, RefactorResult, FileGroup } from '../../types/graph';
 import { getFileIcon } from '../utils/fileIcons';
 import { DEPTH_LAYER_COLORS } from '../utils/constants';
 import { getStylesheet } from '../utils/graphStyles';
@@ -29,6 +29,15 @@ let edgeAnimationId: number | null = null;
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+function getAllDescendantNodeIds(group: FileGroup, allGroups: FileGroup[]): string[] {
+  const ids = [...group.nodeIds];
+  const children = allGroups.filter(g => g.parentGroupId === group.id);
+  for (const child of children) {
+    ids.push(...child.nodeIds);
+  }
+  return ids;
+}
+
 function buildElements(graph: Graph) {
   const filteredNodes = graph.nodes.filter(n => {
     if (props.showTests === false && n.type === 'test') return false;
@@ -38,19 +47,50 @@ function buildElements(graph: Graph) {
 
   const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-  // Create group (compound parent) nodes — always expanded, never hidden
+  // Create group (compound parent) nodes — supports nested subgroups
   const groupNodes: cytoscape.ElementDefinition[] = [];
   const nodeParentMap = new Map<string, string>();
 
   if (graph.groups?.length) {
-    for (const group of graph.groups) {
-      const visibleChildren = group.nodeIds.filter(id => nodeIds.has(id));
-      if (visibleChildren.length < 2) continue;
+    // Level 0 groups first (parents)
+    const level0 = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
+    const level1 = graph.groups.filter(g => g.level === 1 && g.parentGroupId);
+
+    for (const group of level0) {
+      const allDescendantIds = getAllDescendantNodeIds(group, graph.groups);
+      const visibleDescendants = allDescendantIds.filter(id => nodeIds.has(id));
+      if (visibleDescendants.length < 2) continue;
       groupNodes.push({
-        data: { id: group.id, label: group.label, type: 'group' },
+        data: { id: group.id, label: group.label, type: 'group', level: group.level ?? 0 },
+      });
+    }
+
+    for (const sub of level1) {
+      const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
+      if (visibleChildren.length < 2) continue;
+      // Only add if parent group was added
+      if (!groupNodes.find(g => g.data.id === sub.parentGroupId)) continue;
+      groupNodes.push({
+        data: {
+          id: sub.id,
+          label: sub.label,
+          type: 'group',
+          level: sub.level,
+          parent: sub.parentGroupId,
+        },
       });
       for (const nid of visibleChildren) {
-        nodeParentMap.set(nid, group.id);
+        nodeParentMap.set(nid, sub.id);
+      }
+    }
+
+    // Files not claimed by subgroups stay in parent group directly
+    for (const group of level0) {
+      if (!groupNodes.find(g => g.data.id === group.id)) continue;
+      for (const nid of group.nodeIds) {
+        if (nodeIds.has(nid) && !nodeParentMap.has(nid)) {
+          nodeParentMap.set(nid, group.id);
+        }
       }
     }
   }
@@ -176,10 +216,17 @@ function initCytoscape() {
     // Focus this group
     clearFocusMode(instance);
     target.addClass('group-focused');
-    instance.nodes('[type="group"]').not(target).addClass('group-dimmed');
 
-    // Children of focused group
+    // Children of focused group (recursive — includes nested subgroups)
     const children = target.descendants();
+
+    // Dim other groups, but NOT subgroups inside the focused parent
+    const childGroupIds = new Set(children.filter('[type="group"]').map((n: any) => n.id()));
+    instance.nodes('[type="group"]').forEach((g: any) => {
+      if (g.id() !== target.id() && !childGroupIds.has(g.id())) {
+        g.addClass('group-dimmed');
+      }
+    });
     const childIds = new Set(children.map((n: any) => n.id()));
 
     // Dim non-member nodes

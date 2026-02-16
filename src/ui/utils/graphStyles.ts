@@ -65,6 +65,21 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'text-background-padding': '3px',
       } as unknown as cytoscape.Css.Node,
     },
+    // Subgroup (nested compound) node styles — subtler than parent groups
+    {
+      selector: 'node[type="group"][level=1]',
+      style: {
+        'background-color': '#1e293b',
+        'background-opacity': 0.4,
+        'border-width': 1,
+        'border-style': 'dotted',
+        'border-color': '#334155',
+        'border-opacity': 0.5,
+        'font-size': '9px',
+        'padding': '12px',
+        'text-margin-y': -3,
+      } as unknown as cytoscape.Css.Node,
+    },
     // Focus mode — group highlighted
     {
       selector: 'node[type="group"].group-focused',

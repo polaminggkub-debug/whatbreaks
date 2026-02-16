@@ -98,9 +98,19 @@ export function computeFileGroups(graph: Graph): FileGroup[] {
   }
 
   // ── Pass 3: Name resolution ─────────────────────────────────────────
-  return finalGroups.map((nodeIds, i) =>
+  const groups = finalGroups.map((nodeIds, i) =>
     buildFileGroup(Array.from(nodeIds), graph, i)
   );
+
+  // ── Pass 4: Subgroup detection (directory-based) ────────────────────
+  const allGroups: FileGroup[] = [];
+  for (const group of groups) {
+    allGroups.push(group);
+    const subs = detectSubgroups(group, graph);
+    allGroups.push(...subs);
+  }
+
+  return allGroups;
 }
 
 function computeCoupling(
@@ -146,7 +156,60 @@ function buildFileGroup(nodeIds: string[], graph: Graph, index: number): FileGro
   const label = resolveGroupName(nodeIds, centralNodeId);
   const id = `group-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
-  return { id, label, nodeIds, centralNodeId };
+  return { id, label, nodeIds, centralNodeId, level: 0 };
+}
+
+const MIN_SUBGROUP_SIZE = 2;
+
+function detectSubgroups(parentGroup: FileGroup, graph: Graph): FileGroup[] {
+  const dirMap = new Map<string, string[]>();
+  for (const nodeId of parentGroup.nodeIds) {
+    const dir = path.dirname(nodeId);
+    if (!dirMap.has(dir)) dirMap.set(dir, []);
+    dirMap.get(dir)!.push(nodeId);
+  }
+
+  const dirs = Array.from(dirMap.keys());
+  if (dirs.length < 2) return [];
+
+  const qualifiedDirs = dirs.filter(d => dirMap.get(d)!.length >= MIN_SUBGROUP_SIZE);
+  if (qualifiedDirs.length < 2) return [];
+
+  const subgroups: FileGroup[] = [];
+  const claimedNodeIds = new Set<string>();
+
+  for (const dir of qualifiedDirs) {
+    const nodeIds = dirMap.get(dir)!;
+    const dirName = path.basename(dir);
+    const label = dirName.charAt(0).toUpperCase() + dirName.slice(1);
+    const id = `${parentGroup.id}/${dirName}`;
+
+    let centralNodeId = nodeIds[0];
+    let maxFanIn = 0;
+    for (const nid of nodeIds) {
+      const node = graph.nodes.find(n => n.id === nid);
+      if (node && node.fanIn > maxFanIn) {
+        maxFanIn = node.fanIn;
+        centralNodeId = nid;
+      }
+    }
+
+    subgroups.push({
+      id,
+      label,
+      nodeIds,
+      centralNodeId,
+      parentGroupId: parentGroup.id,
+      level: 1,
+    });
+
+    for (const nid of nodeIds) claimedNodeIds.add(nid);
+  }
+
+  // Remove claimed files from parent — they now belong to subgroups
+  parentGroup.nodeIds = parentGroup.nodeIds.filter(nid => !claimedNodeIds.has(nid));
+
+  return subgroups;
 }
 
 function resolveGroupName(nodeIds: string[], centralNodeId: string): string {

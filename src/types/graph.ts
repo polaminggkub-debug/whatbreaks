@@ -29,6 +29,8 @@ export interface FileGroup {
   label: string;
   nodeIds: string[];
   centralNodeId: string;
+  parentGroupId?: string;
+  level: number;
 }
 
 export interface Graph {
