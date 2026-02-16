@@ -58,6 +58,8 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'text-halign': 'center',
         'text-margin-y': -4,
         'padding': '16px',
+        'text-max-width': '200px',
+        'text-wrap': 'none',
         'text-background-color': '#1e293b',
         'text-background-opacity': 0.9,
         'text-background-padding': '3px',
