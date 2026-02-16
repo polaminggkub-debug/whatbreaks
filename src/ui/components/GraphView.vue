@@ -104,7 +104,7 @@ function buildElements(graph: Graph) {
       },
     }));
 
-  // Aggregate edges for collapsed groups
+  // Aggregate edges: reroute edges touching collapsed group children
   const collapsedGroupNodeMap = new Map<string, string>();
   for (const group of graph.groups ?? []) {
     if (!expandedGroups.value.has(group.id)) {
@@ -119,14 +119,22 @@ function buildElements(graph: Graph) {
   for (const edge of graph.edges) {
     const srcGroup = collapsedGroupNodeMap.get(edge.source);
     const tgtGroup = collapsedGroupNodeMap.get(edge.target);
-    if (srcGroup && tgtGroup && srcGroup !== tgtGroup) {
-      const key = `${srcGroup}->${tgtGroup}`;
-      if (!aggregateEdgeSet.has(key)) {
-        aggregateEdgeSet.add(key);
-        aggregateEdges.push({
-          data: { id: `agg-${key}`, source: srcGroup, target: tgtGroup, edgeType: 'aggregate' },
-        });
-      }
+
+    // Resolve: if node is in collapsed group, reroute to group node
+    const resolvedSrc = srcGroup ?? (nodeIds.has(edge.source) ? edge.source : null);
+    const resolvedTgt = tgtGroup ?? (nodeIds.has(edge.target) ? edge.target : null);
+
+    // Skip if either end is invisible, or self-loop within same group
+    if (!resolvedSrc || !resolvedTgt || resolvedSrc === resolvedTgt) continue;
+    // Skip if already covered by the regular edges filter
+    if (!srcGroup && !tgtGroup) continue;
+
+    const key = `${resolvedSrc}->${resolvedTgt}`;
+    if (!aggregateEdgeSet.has(key)) {
+      aggregateEdgeSet.add(key);
+      aggregateEdges.push({
+        data: { id: `agg-${key}`, source: resolvedSrc, target: resolvedTgt, edgeType: 'aggregate' },
+      });
     }
   }
 
