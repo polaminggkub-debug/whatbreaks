@@ -58,7 +58,7 @@ function toggleTestLevel(level: string) {
         <span class="legend-dot" style="border: 1px dashed #475569; background: transparent;"></span>
         <span class="legend-label">File group</span>
       </div>
-      <span class="legend-hint">dbl-click: expand</span>
+      <span class="legend-hint">click: expand</span>
     </div>
   </div>
 </template>

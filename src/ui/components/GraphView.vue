@@ -199,33 +199,8 @@ function initCytoscape() {
     emit('nodeClick', nodeId);
   });
 
-  // Group focus mode: click a group to dim others
+  // Click group to expand/collapse
   instance.on('tap', 'node[type="group"]', (evt) => {
-    const groupId = evt.target.id();
-    if (evt.target.hasClass('group-focused')) {
-      instance.nodes('[type="group"]').removeClass('group-focused group-dimmed');
-      instance.nodes().not('[type="group"]').removeClass('impact-unaffected');
-      instance.edges().removeClass('impact-unaffected');
-      return;
-    }
-    instance.nodes('[type="group"]').addClass('group-dimmed').removeClass('group-focused');
-    evt.target.removeClass('group-dimmed').addClass('group-focused');
-    const childNodeIds = new Set(
-      instance.nodes(`[parent="${groupId}"]`).map((n: any) => n.id())
-    );
-    instance.nodes().not('[type="group"]').forEach((n: any) => {
-      n.toggleClass('impact-unaffected', !childNodeIds.has(n.id()));
-    });
-    instance.edges().forEach((e: any) => {
-      const connected = childNodeIds.has(e.source().id()) || childNodeIds.has(e.target().id());
-      e.toggleClass('impact-unaffected', !connected);
-    });
-    const groupEles = evt.target.descendants().add(evt.target);
-    instance.animate({ fit: { eles: groupEles, padding: 60 }, duration: 400, easing: 'ease-out-cubic' });
-  });
-
-  // Double-click group to expand/collapse
-  instance.on('dblclick', 'node[type="group"]', (evt) => {
     const groupId = evt.target.id();
     if (expandedGroups.value.has(groupId)) {
       expandedGroups.value.delete(groupId);
@@ -237,10 +212,8 @@ function initCytoscape() {
 
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
-      instance.nodes().removeClass('selected-node selected-neighbor group-focused group-dimmed');
+      instance.nodes().removeClass('selected-node selected-neighbor');
       instance.edges().removeClass('selected-connected');
-      instance.nodes().not('[type="group"]').removeClass('impact-unaffected');
-      instance.edges().removeClass('impact-unaffected');
     }
   });
 

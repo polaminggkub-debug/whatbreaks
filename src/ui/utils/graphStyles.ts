@@ -64,18 +64,6 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
       } as unknown as cytoscape.Css.Node,
     },
     {
-      selector: 'node[type="group"].group-dimmed',
-      style: { 'opacity': 0.15, 'border-opacity': 0.1 } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node[type="group"].group-focused',
-      style: {
-        'border-color': '#6366f1',
-        'border-opacity': 0.8,
-        'border-width': 2,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
       selector: 'node[type="group"][?collapsedCount]',
       style: {
         'width': 80,
