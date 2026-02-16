@@ -306,6 +306,51 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'width': 0.5,
       } as unknown as cytoscape.Css.Edge,
     },
+    // Cycle highlight — circular dependency visualization
+    {
+      selector: 'node.cycle-highlight',
+      style: {
+        'overlay-color': '#f59e0b',
+        'overlay-opacity': 0.3,
+        'overlay-padding': 6,
+        'border-width': 3,
+        'border-color': '#f59e0b',
+        'z-index': 999,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.cycle-highlight',
+      style: {
+        'line-color': '#f59e0b',
+        'target-arrow-color': '#f59e0b',
+        'opacity': 1,
+        'width': 2.5,
+        'z-index': 999,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    {
+      selector: 'node.cycle-dimmed',
+      style: {
+        'opacity': 0.2,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.cycle-dimmed',
+      style: {
+        'opacity': 0.08,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Path trace highlight — single edge highlight on hover
+    {
+      selector: 'edge.path-highlight',
+      style: {
+        'line-color': '#e2e8f0',
+        'target-arrow-color': '#e2e8f0',
+        'opacity': 1,
+        'width': 3,
+        'z-index': 1000,
+      } as unknown as cytoscape.Css.Edge,
+    },
     {
       selector: 'edge[edgeType="test-covers"]',
       style: {

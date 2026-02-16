@@ -7,7 +7,11 @@ import ModeToggle from './components/ModeToggle.vue';
 import SearchBar from './components/SearchBar.vue';
 import Legend from './components/Legend.vue';
 import ViewControls from './components/ViewControls.vue';
+import ContextMenu from './components/ContextMenu.vue';
+import ImpactToast from './components/ImpactToast.vue';
+import HealthPanel from './components/HealthPanel.vue';
 import { useImpact } from './composables/useImpact';
+import { useHealth } from './composables/useHealth';
 import { useMode } from './composables/useMode';
 import { useDevSocket } from './composables/useDevSocket';
 
@@ -24,7 +28,15 @@ const showTests = ref(true);
 const showFoundation = ref(true);
 const sizeMode = ref<'fanIn' | 'uniform'>('fanIn');
 const { highlightResult, analyzeFailure, analyzeRefactor, clearHighlight } = useImpact(graph);
+const { healthReport } = useHealth(graph);
 const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
+
+// Context menu state
+const ctxMenu = ref({ visible: false, x: 0, y: 0, nodeId: '', nodeLabel: '' });
+// Break simulation toast
+const simResult = ref<RefactorResult | null>(null);
+// Health panel
+const showHealth = ref(false);
 
 // When dev socket provides a graph, use it
 watch(devGraph, (newGraph) => {
@@ -125,6 +137,62 @@ function onNavigateToNode(nodeId: string) {
   selectedNode.value = node;
   graphViewRef.value?.focusNode(nodeId);
 }
+
+function onHighlightEdge(sourceId: string, targetId: string) {
+  graphViewRef.value?.highlightEdge(sourceId, targetId);
+}
+
+function onClearEdgeHighlight() {
+  graphViewRef.value?.clearEdgeHighlight();
+}
+
+// --- Context menu & break simulation ---
+function onContextMenu(x: number, y: number, nodeId: string, nodeLabel: string) {
+  ctxMenu.value = { visible: true, x, y, nodeId, nodeLabel };
+}
+
+function onSimulateBreak(nodeId: string) {
+  ctxMenu.value.visible = false;
+  const result = analyzeRefactor(nodeId);
+  if (result) {
+    simResult.value = result;
+    // Also select the node to show panel
+    onNodeClick(nodeId);
+  }
+}
+
+function onClearSimulation() {
+  simResult.value = null;
+  clearHighlight();
+}
+
+function onShowImporters(nodeId: string) {
+  ctxMenu.value.visible = false;
+  onNodeClick(nodeId);
+  graphViewRef.value?.focusNode(nodeId);
+}
+
+function onCopyPath(nodeId: string) {
+  ctxMenu.value.visible = false;
+  navigator.clipboard.writeText(nodeId);
+}
+
+// --- Health panel ---
+function onHealthSimulateBreak(fileId: string) {
+  showHealth.value = false;
+  onSimulateBreak(fileId);
+}
+
+function onHealthAnalyzeTest(testId: string) {
+  showHealth.value = false;
+  mode.value = 'failing';
+  analyzeFailure(testId);
+  onNodeClick(testId);
+}
+
+function onHealthHighlightCycle(cycle: string[]) {
+  graphViewRef.value?.highlightCycle(cycle);
+}
 </script>
 
 <template>
@@ -169,10 +237,12 @@ function onNavigateToNode(nodeId: string) {
           :showTests="showTests"
           :showFoundation="showFoundation"
           :sizeMode="sizeMode"
+          :showHealth="showHealth"
           @update:layout="layoutMode = $event"
           @update:showTests="showTests = $event"
           @update:showFoundation="showFoundation = $event"
           @update:sizeMode="sizeMode = $event"
+          @update:showHealth="showHealth = $event"
         />
       </div>
     </header>
@@ -202,6 +272,7 @@ function onNavigateToNode(nodeId: string) {
         :showFoundation="showFoundation"
         :sizeMode="sizeMode"
         @nodeClick="onNodeClick"
+        @contextMenu="onContextMenu"
       />
       <div v-else class="empty-state">
         <p>No graph data available.</p>
@@ -218,8 +289,42 @@ function onNavigateToNode(nodeId: string) {
           :highlightResult="highlightResult"
           @close="selectedNode = null"
           @navigateToNode="onNavigateToNode"
+          @highlightEdge="onHighlightEdge"
+          @clearEdgeHighlight="onClearEdgeHighlight"
         />
       </transition>
+
+      <!-- Health panel (left side) -->
+      <transition name="slide-left">
+        <HealthPanel
+          v-if="showHealth && healthReport"
+          :report="healthReport"
+          @close="showHealth = false"
+          @simulateBreak="onHealthSimulateBreak"
+          @analyzeTest="onHealthAnalyzeTest"
+          @highlightCycle="onHealthHighlightCycle"
+        />
+      </transition>
+
+      <!-- Break simulation toast -->
+      <ImpactToast
+        v-if="simResult"
+        :result="simResult"
+        @clear="onClearSimulation"
+      />
+
+      <!-- Context menu -->
+      <ContextMenu
+        :visible="ctxMenu.visible"
+        :x="ctxMenu.x"
+        :y="ctxMenu.y"
+        :nodeId="ctxMenu.nodeId"
+        :nodeLabel="ctxMenu.nodeLabel"
+        @close="ctxMenu.visible = false"
+        @simulateBreak="onSimulateBreak"
+        @showImporters="onShowImporters"
+        @copyPath="onCopyPath"
+      />
     </main>
 
     <footer class="bottombar">
@@ -426,6 +531,10 @@ function onNavigateToNode(nodeId: string) {
   transform: translateX(100%);
   opacity: 0;
 }
+
+.slide-left-enter-active { transition: transform 0.25s ease-out, opacity 0.25s ease-out; }
+.slide-left-leave-active { transition: transform 0.2s ease-in, opacity 0.2s ease-in; }
+.slide-left-enter-from, .slide-left-leave-to { transform: translateX(-100%); opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .spinner { animation: none; }

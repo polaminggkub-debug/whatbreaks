@@ -4,6 +4,7 @@ defineProps<{
   showTests: boolean;
   showFoundation: boolean;
   sizeMode: 'fanIn' | 'uniform';
+  showHealth: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -11,6 +12,7 @@ const emit = defineEmits<{
   'update:showTests': [value: boolean];
   'update:showFoundation': [value: boolean];
   'update:sizeMode': [value: 'fanIn' | 'uniform'];
+  'update:showHealth': [value: boolean];
 }>();
 </script>
 
@@ -62,6 +64,18 @@ const emit = defineEmits<{
         <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
       </svg>
       Size: {{ sizeMode === 'fanIn' ? 'Fan-in' : 'Uniform' }}
+    </button>
+
+    <button
+      class="ctrl-btn"
+      :class="{ active: showHealth }"
+      @click="emit('update:showHealth', !showHealth)"
+      title="Toggle codebase health panel"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </svg>
+      Health
     </button>
   </div>
 </template>

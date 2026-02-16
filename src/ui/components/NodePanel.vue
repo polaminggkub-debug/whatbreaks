@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import type { Graph, GraphNode, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
 import { LAYER_COLORS, IMPACT_COLORS, DEPTH_LAYER_COLORS, DEPTH_LAYER_LABELS, TEST_LEVEL_COLORS } from '../utils/constants';
+import { tracePath, getEdgeRelation } from '../composables/useImpact';
 import TestCommand from './TestCommand.vue';
 
 const props = defineProps<{
@@ -15,6 +16,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
   navigateToNode: [nodeId: string];
+  highlightEdge: [sourceId: string, targetId: string];
+  clearEdgeHighlight: [];
 }>();
 
 const impactLabel = computed(() => {
@@ -58,6 +61,35 @@ const importedBy = computed(() => {
       const srcNode = props.graph!.nodes.find(n => n.id === e.source);
       return { id: e.source, label: srcNode ? srcNode.label : e.source };
     });
+});
+
+/** Compute the impact path from selected node to the impact root */
+const impactPath = computed(() => {
+  if (!props.graph || !props.impact || !props.highlightResult) return [];
+  // Don't show path for root node or unaffected nodes
+  if (props.impact.status === 'root' || props.impact.status === 'unaffected') return [];
+
+  const rootId = props.highlightResult.mode === 'failing'
+    ? (props.highlightResult as FailingResult).test
+    : (props.highlightResult as RefactorResult).file;
+
+  const path = tracePath(props.graph, props.node.id, rootId);
+  if (path.length < 2) return []; // No meaningful path
+
+  return path.map((id, i) => {
+    const node = props.graph!.nodes.find(n => n.id === id);
+    const relation = i < path.length - 1
+      ? getEdgeRelation(props.graph!, id, path[i + 1])
+      : '';
+    const isFirst = i === 0;
+    const isLast = i === path.length - 1;
+    return {
+      id,
+      label: node?.label ?? id.split('/').pop() ?? id,
+      relation,
+      tag: isFirst ? 'this file' : isLast ? 'root' : '',
+    };
+  });
 });
 
 const suggestedCommand = computed(() => {
@@ -141,6 +173,33 @@ function copyPath() {
           <span class="impact-text">{{ impactLabel }}</span>
         </div>
         <div class="impact-reason">{{ impact.reason }}</div>
+      </div>
+
+      <!-- Impact path trace ("Why is this file affected?") -->
+      <div class="section" v-if="impactPath.length > 0">
+        <div class="section-label">Why This File Is Affected</div>
+        <div class="impact-chain">
+          <div
+            v-for="(step, i) in impactPath"
+            :key="step.id"
+            class="chain-step"
+            @click="emit('navigateToNode', step.id)"
+            @mouseenter="i < impactPath.length - 1 ? emit('highlightEdge', step.id, impactPath[i + 1].id) : undefined"
+            @mouseleave="emit('clearEdgeHighlight')"
+          >
+            <span v-for="_ in i" :key="_" class="chain-indent"></span>
+            <span class="chain-connector" v-if="i > 0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2">
+                <polyline points="6,4 6,16 18,16" />
+                <polyline points="14,12 18,16 14,20" />
+              </svg>
+            </span>
+            <span class="chain-relation" v-if="i > 0">{{ impactPath[i - 1].relation }}</span>
+            <span class="chain-file">{{ step.label }}</span>
+            <span v-if="step.tag === 'this file'" class="chain-tag">this file</span>
+            <span v-if="step.tag === 'root'" class="chain-tag root">root</span>
+          </div>
+        </div>
       </div>
 
       <!-- Exported functions -->
@@ -360,73 +419,28 @@ function copyPath() {
   padding-left: 18px;
 }
 
-.func-list,
-.test-list,
-.dep-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.func-list, .test-list, .dep-list { list-style: none; padding: 0; margin: 0; }
+.func-item { padding: 4px 8px; font-size: 12px; background: #0f172a; border-radius: 4px; margin-bottom: 3px; }
+.func-item code { font-family: 'Fira Code', monospace; color: #a5b4fc; }
+.dep-item { padding: 4px 0; font-size: 12px; color: #94a3b8; border-bottom: 1px solid #1e293b; }
+.dep-link { cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: background 0.15s, color 0.15s; }
+.dep-link:hover { background: #0f172a; color: #a5b4fc; }
+.test-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 12px; color: #94a3b8; border-radius: 4px; transition: background 0.15s; }
+.test-item:hover { background: #0f172a; }
+.no-tests { font-size: 12px; color: #475569; font-style: italic; }
+.metric { font-family: 'Fira Code', monospace; font-size: 18px; font-weight: 700; color: #e2e8f0; }
 
-.func-item {
-  padding: 4px 8px;
-  font-size: 12px;
-  background: #0f172a;
-  border-radius: 4px;
-  margin-bottom: 3px;
-}
-
-.func-item code {
-  font-family: 'Fira Code', monospace;
-  color: #a5b4fc;
-}
-
-.dep-item {
-  padding: 4px 0;
-  font-size: 12px;
-  color: #94a3b8;
-  border-bottom: 1px solid #1e293b;
-}
-
-.dep-link {
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
-}
-
-.dep-link:hover {
-  background: #0f172a;
-  color: #a5b4fc;
-}
-
-.test-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  font-size: 12px;
-  color: #94a3b8;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.test-item:hover {
-  background: #0f172a;
-}
-
-.no-tests {
-  font-size: 12px;
-  color: #475569;
-  font-style: italic;
-}
-
-.metric {
-  font-family: 'Fira Code', monospace;
-  font-size: 18px;
-  font-weight: 700;
-  color: #e2e8f0;
-}
+/* Impact path trace chain */
+.impact-chain { background: #0f172a; border-radius: 6px; border: 1px solid #334155; padding: 8px 6px; }
+.chain-step { display: flex; align-items: center; gap: 4px; padding: 4px 6px; border-radius: 4px; cursor: pointer; transition: background 0.15s, color 0.15s; }
+.chain-step:hover { background: #1e293b; }
+.chain-indent { width: 14px; flex-shrink: 0; }
+.chain-connector { flex-shrink: 0; display: flex; align-items: center; }
+.chain-relation { font-size: 10px; color: #64748b; flex-shrink: 0; font-style: italic; }
+.chain-file { font-family: 'Fira Code', monospace; font-size: 12px; color: #cbd5e1; }
+.chain-step:hover .chain-file { color: #a5b4fc; }
+.chain-tag { font-size: 9px; padding: 1px 6px; border-radius: 8px; background: #334155; color: #94a3b8; flex-shrink: 0; margin-left: auto; }
+.chain-tag.root { background: #dc2626; color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   .impact-dot.pulse {

@@ -23,6 +23,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   nodeClick: [nodeId: string];
+  contextMenu: [x: number, y: number, nodeId: string, nodeLabel: string];
 }>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
@@ -427,6 +428,14 @@ function initCytoscape() {
     }
   });
 
+  // Right-click node — context menu for break simulation
+  instance.on('cxttap', 'node', (evt) => {
+    if (evt.target.data('type') === 'group') return;
+    const node = evt.target;
+    const pos = evt.renderedPosition;
+    emit('contextMenu', pos.x, pos.y, node.id(), node.data('label'));
+  });
+
   // Hover focus: 3-tier dim model (skip during impact analysis)
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target;
@@ -662,7 +671,61 @@ function focusNode(nodeId: string) {
   });
 }
 
-defineExpose({ focusNode });
+function highlightCycle(cycle: string[]) {
+  if (!cy.value) return;
+  const instance = cy.value;
+  const cycleSet = new Set(cycle);
+
+  // Clear previous
+  instance.elements().removeClass('cycle-highlight cycle-dimmed');
+
+  // Highlight cycle nodes
+  instance.nodes().forEach((n: any) => {
+    if (cycleSet.has(n.id())) n.addClass('cycle-highlight');
+    else if (n.data('type') !== 'group') n.addClass('cycle-dimmed');
+  });
+
+  // Highlight edges between consecutive cycle nodes
+  for (let i = 0; i < cycle.length; i++) {
+    const src = cycle[i];
+    const tgt = cycle[(i + 1) % cycle.length];
+    instance.edges().forEach((e: any) => {
+      if (e.source().id() === src && e.target().id() === tgt) e.addClass('cycle-highlight');
+    });
+  }
+  instance.edges().not('.cycle-highlight').addClass('cycle-dimmed');
+
+  // Zoom to cycle
+  const cycleNodes = instance.nodes().filter((n: any) => cycleSet.has(n.id()));
+  if (cycleNodes.length > 0) {
+    instance.animate({ fit: { eles: cycleNodes, padding: 80 }, duration: 400, easing: 'ease-out-cubic' });
+  }
+}
+
+function clearCycleHighlight() {
+  if (!cy.value) return;
+  cy.value.elements().removeClass('cycle-highlight cycle-dimmed');
+}
+
+function highlightEdge(sourceId: string, targetId: string) {
+  if (!cy.value) return;
+  cy.value.edges('.path-highlight').removeClass('path-highlight');
+  // Find the edge connecting the two nodes (either direction)
+  cy.value.edges().forEach((e: any) => {
+    const src = e.source().id();
+    const tgt = e.target().id();
+    if ((src === sourceId && tgt === targetId) || (src === targetId && tgt === sourceId)) {
+      e.addClass('path-highlight');
+    }
+  });
+}
+
+function clearEdgeHighlight() {
+  if (!cy.value) return;
+  cy.value.edges('.path-highlight').removeClass('path-highlight');
+}
+
+defineExpose({ focusNode, highlightEdge, clearEdgeHighlight, highlightCycle, clearCycleHighlight });
 </script>
 
 <template>
