@@ -267,7 +267,7 @@ function getLayoutConfig() {
   if (currentLayout === 'dagre') {
     return {
       name: 'dagre',
-      rankDir: 'BT',
+      rankDir: 'TB',
       nodeSep: 50,
       edgeSep: 10,
       rankSep: 80,
@@ -275,7 +275,7 @@ function getLayoutConfig() {
       animationDuration: prefersReducedMotion ? 0 : 800,
       fit: true,
       padding: 40,
-      rank: (node: any) => node.data('layerIndex'),
+      rank: (node: any) => -node.data('layerIndex'),
     };
   }
 
