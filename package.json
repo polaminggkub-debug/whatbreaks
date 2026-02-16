@@ -40,6 +40,7 @@
     "commander": "^12.1.0",
     "cytoscape": "^3.30.4",
     "cytoscape-dagre": "^2.5.0",
+    "cytoscape-fcose": "^2.2.0",
     "express": "^4.21.0",
     "glob": "^11.0.0",
     "material-icon-theme": "^5.31.0",

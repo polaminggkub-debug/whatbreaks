@@ -2,12 +2,14 @@
 import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
 import cyDagre from 'cytoscape-dagre';
+import fcose from 'cytoscape-fcose';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult, FileGroup } from '../../types/graph';
 import { getFileIcon } from '../utils/fileIcons';
 import { DEPTH_LAYER_COLORS } from '../utils/constants';
 import { getStylesheet } from '../utils/graphStyles';
 
 cytoscape.use(cyDagre);
+cytoscape.use(fcose);
 
 const props = defineProps<{
   graph: Graph;
@@ -220,18 +222,20 @@ function getLayoutConfig() {
   }
 
   return {
-    name: 'cose',
+    name: 'fcose',
     animate: !prefersReducedMotion,
     animationDuration: prefersReducedMotion ? 0 : 800,
     padding: 30,
-    nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
-    idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
-    edgeElasticity: () => 100,
+    nodeRepulsion: nodeCount > 100 ? 8000 : 4500,
+    idealEdgeLength: nodeCount > 100 ? 120 : 80,
+    edgeElasticity: 0.45,
     gravity: 0.25,
-    numIter: 1000,
+    numIter: 2500,
     nodeDimensionsIncludeLabels: true,
     fit: true,
-    randomize: false,
+    randomize: true,
+    quality: 'default',
+    nodeSeparation: 75,
   };
 }
 
