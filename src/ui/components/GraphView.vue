@@ -354,18 +354,34 @@ function initCytoscape() {
     }
   });
 
+  // Hover focus: 3-tier dim model (skip during impact analysis)
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target;
-    node.addClass('hover');
-    node.connectedEdges().addClass('hover-connected');
-    node.neighborhood('node').addClass('hover');
+    if (node.data('type') === 'group') return;
+    if (instance.nodes('.impact-root').length > 0) return;
+
+    // Tier 3: dim everything
+    instance.nodes().addClass('hover-dimmed');
+    instance.edges().addClass('hover-dimmed');
+
+    // Tier 1: focus node
+    node.removeClass('hover-dimmed').addClass('hover-focus');
+
+    // Tier 2: connected neighbors + edges
+    const neighbors = node.neighborhood('node').not('[type="group"]');
+    neighbors.removeClass('hover-dimmed').addClass('hover-neighbor');
+    node.connectedEdges().removeClass('hover-dimmed').addClass('hover-connected');
+
+    // Keep parent groups of visible nodes visible
+    node.union(neighbors).forEach((n: any) => {
+      const parent = n.parent();
+      if (parent.length) parent.removeClass('hover-dimmed');
+    });
   });
 
   instance.on('mouseout', 'node', (evt) => {
-    const node = evt.target;
-    node.removeClass('hover');
-    node.connectedEdges().removeClass('hover-connected');
-    node.neighborhood('node').removeClass('hover');
+    if (evt.target.data('type') === 'group') return;
+    instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected');
   });
 
   cy.value = instance;

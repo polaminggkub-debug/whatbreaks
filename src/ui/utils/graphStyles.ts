@@ -35,7 +35,7 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'text-max-width': '80px',
         'overlay-padding': 4,
         'transition-property': 'background-color, border-color, opacity, border-width',
-        'transition-duration': 250,
+        'transition-duration': 150,
       } as unknown as cytoscape.Css.Node,
     },
     // Feature group (level 0) — strong container, solid border
@@ -140,13 +140,33 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'overlay-opacity': 0.15,
       } as unknown as cytoscape.Css.Node,
     },
+    // Hover focus — 3-tier model: focus node, connected, dimmed
     {
-      selector: 'node.hover',
+      selector: 'node.hover-focus',
       style: {
-        'background-color': '#334155',
+        'opacity': 1,
         'border-width': 3,
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node.hover-neighbor',
+      style: {
+        'opacity': 0.95,
+        'z-index': 998,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node.hover-dimmed',
+      style: {
+        'opacity': 0.15,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.hover-dimmed',
+      style: {
+        'opacity': 0.08,
+      } as unknown as cytoscape.Css.Edge,
     },
     {
       selector: 'node.selected-node',
@@ -223,7 +243,7 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'curve-style': 'bezier',
         'opacity': 0.4,
         'transition-property': 'line-color, target-arrow-color, opacity, width',
-        'transition-duration': 250,
+        'transition-duration': 150,
       } as unknown as cytoscape.Css.Edge,
     },
     {
