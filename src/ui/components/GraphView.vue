@@ -71,17 +71,35 @@ function buildElements(graph: Graph) {
   const nodeParentMap = new Map<string, string>();
   const isCose = (props.layoutMode ?? 'dagre') === 'cose';
 
+  // Oversized parent groups create massive bounding boxes that dominate the layout.
+  // Promote their subgroups to top-level when a parent exceeds this threshold.
+  const MAX_COMPOUND_SIZE = 15;
+
   if (graph.groups?.length) {
     const level0 = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
     const level1 = graph.groups.filter(g => g.level === 1 && g.parentGroupId);
 
+    // Pre-compute visible descendant counts + colors per level-0 group
+    const groupMeta = new Map<string, { visible: number; color: string; hasSubs: boolean }>();
     for (const group of level0) {
       const allDescendantIds = getAllDescendantNodeIds(group, graph.groups);
-      const visibleDescendants = allDescendantIds.filter(id => nodeIds.has(id));
-      if (visibleDescendants.length < 2) continue;
+      const visibleCount = allDescendantIds.filter(id => nodeIds.has(id)).length;
       const color = getDominantColor(allDescendantIds, graph);
+      const hasSubs = level1.some(s => s.parentGroupId === group.id);
+      groupMeta.set(group.id, { visible: visibleCount, color, hasSubs });
+    }
+
+    // Add level-0 group nodes (skip oversized parents that have subgroups)
+    const promotedParentIds = new Set<string>();
+    for (const group of level0) {
+      const meta = groupMeta.get(group.id)!;
+      if (meta.visible < 2) continue;
+      if (meta.visible > MAX_COMPOUND_SIZE && meta.hasSubs) {
+        promotedParentIds.add(group.id);
+        continue; // skip — subgroups will be promoted to top-level
+      }
       groupNodes.push({
-        data: { id: group.id, label: group.label, type: 'group', level: 0, color },
+        data: { id: group.id, label: group.label, type: 'group', level: 0, color: meta.color },
       });
     }
 
@@ -94,23 +112,45 @@ function buildElements(graph: Graph) {
           if (nodeIds.has(nid)) nodeParentMap.set(nid, group.id);
         }
       }
+      // Promoted parents in cose: subgroups become top-level groups
+      for (const sub of level1) {
+        if (!promotedParentIds.has(sub.parentGroupId!)) continue;
+        const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
+        if (visibleChildren.length < 2) continue;
+        const parentColor = groupMeta.get(sub.parentGroupId!)?.color ?? '#64748b';
+        groupNodes.push({
+          data: { id: sub.id, label: sub.label, type: 'group', level: 0, color: parentColor },
+        });
+        for (const nid of visibleChildren) {
+          nodeParentMap.set(nid, sub.id);
+        }
+      }
     } else {
-      // Nested: subgroups as compound children
+      // Nested: subgroups as compound children (or promoted to top-level)
       for (const sub of level1) {
         const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
         if (visibleChildren.length < 2) continue;
-        const parentNode = groupNodes.find(g => g.data.id === sub.parentGroupId);
-        if (!parentNode) continue;
-        groupNodes.push({
-          data: {
-            id: sub.id,
-            label: sub.label,
-            type: 'group',
-            level: sub.level,
-            parent: sub.parentGroupId,
-            color: parentNode.data.color,
-          },
-        });
+
+        if (promotedParentIds.has(sub.parentGroupId!)) {
+          // Parent was oversized — promote subgroup to top-level
+          const parentColor = groupMeta.get(sub.parentGroupId!)?.color ?? '#64748b';
+          groupNodes.push({
+            data: { id: sub.id, label: sub.label, type: 'group', level: 0, color: parentColor },
+          });
+        } else {
+          const parentNode = groupNodes.find(g => g.data.id === sub.parentGroupId);
+          if (!parentNode) continue;
+          groupNodes.push({
+            data: {
+              id: sub.id,
+              label: sub.label,
+              type: 'group',
+              level: sub.level,
+              parent: sub.parentGroupId,
+              color: parentNode.data.color,
+            },
+          });
+        }
         for (const nid of visibleChildren) {
           nodeParentMap.set(nid, sub.id);
         }
