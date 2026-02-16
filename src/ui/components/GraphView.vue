@@ -26,7 +26,6 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLDivElement | null>(null);
 const cy = shallowRef<cytoscape.Core | null>(null);
 let edgeAnimationId: number | null = null;
-const expandedGroups = ref(new Set<string>());
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -39,7 +38,7 @@ function buildElements(graph: Graph) {
 
   const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-  // Create group (compound parent) nodes if groups exist
+  // Create group (compound parent) nodes — always expanded, never hidden
   const groupNodes: cytoscape.ElementDefinition[] = [];
   const nodeParentMap = new Map<string, string>();
 
@@ -56,42 +55,23 @@ function buildElements(graph: Graph) {
     }
   }
 
-  // Handle collapsed groups
-  for (const group of graph.groups ?? []) {
-    if (!expandedGroups.value.has(group.id)) {
-      const visibleChildren = group.nodeIds.filter(id => nodeIds.has(id));
-      for (const nid of visibleChildren) {
-        nodeIds.delete(nid);
-        nodeParentMap.delete(nid);
-      }
-      const groupNode = groupNodes.find(gn => gn.data.id === group.id);
-      if (groupNode) {
-        groupNode.data.label = `${group.label} (${visibleChildren.length})`;
-        groupNode.data.collapsedCount = visibleChildren.length;
-        groupNode.data.collapsedNodeIds = visibleChildren;
-      }
-    }
-  }
-
-  const nodes = filteredNodes
-    .filter(n => nodeIds.has(n.id))
-    .map(n => ({
-      data: {
-        id: n.id,
-        label: n.label,
-        layer: n.layer,
-        type: n.type,
-        functions: n.functions,
-        color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
-        testLevel: n.testLevel ?? 'unit',
-        icon: getFileIcon(n.id, n.type, n.testLevel),
-        nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
-        layerIndex: n.layerIndex ?? 0,
-        fanIn: n.fanIn ?? 0,
-        depth: n.depth ?? 0,
-        parent: nodeParentMap.get(n.id) ?? undefined,
-      },
-    }));
+  const nodes = filteredNodes.map(n => ({
+    data: {
+      id: n.id,
+      label: n.label,
+      layer: n.layer,
+      type: n.type,
+      functions: n.functions,
+      color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
+      testLevel: n.testLevel ?? 'unit',
+      icon: getFileIcon(n.id, n.type, n.testLevel),
+      nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
+      layerIndex: n.layerIndex ?? 0,
+      fanIn: n.fanIn ?? 0,
+      depth: n.depth ?? 0,
+      parent: nodeParentMap.get(n.id) ?? undefined,
+    },
+  }));
 
   const edges = graph.edges
     .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
@@ -104,41 +84,7 @@ function buildElements(graph: Graph) {
       },
     }));
 
-  // Aggregate edges: reroute edges touching collapsed group children
-  const collapsedGroupNodeMap = new Map<string, string>();
-  for (const group of graph.groups ?? []) {
-    if (!expandedGroups.value.has(group.id)) {
-      for (const nid of group.nodeIds) {
-        collapsedGroupNodeMap.set(nid, group.id);
-      }
-    }
-  }
-
-  const aggregateEdgeSet = new Set<string>();
-  const aggregateEdges: cytoscape.ElementDefinition[] = [];
-  for (const edge of graph.edges) {
-    const srcGroup = collapsedGroupNodeMap.get(edge.source);
-    const tgtGroup = collapsedGroupNodeMap.get(edge.target);
-
-    // Resolve: if node is in collapsed group, reroute to group node
-    const resolvedSrc = srcGroup ?? (nodeIds.has(edge.source) ? edge.source : null);
-    const resolvedTgt = tgtGroup ?? (nodeIds.has(edge.target) ? edge.target : null);
-
-    // Skip if either end is invisible, or self-loop within same group
-    if (!resolvedSrc || !resolvedTgt || resolvedSrc === resolvedTgt) continue;
-    // Skip if already covered by the regular edges filter
-    if (!srcGroup && !tgtGroup) continue;
-
-    const key = `${resolvedSrc}->${resolvedTgt}`;
-    if (!aggregateEdgeSet.has(key)) {
-      aggregateEdgeSet.add(key);
-      aggregateEdges.push({
-        data: { id: `agg-${key}`, source: resolvedSrc, target: resolvedTgt, edgeType: 'aggregate' },
-      });
-    }
-  }
-
-  return [...groupNodes, ...nodes, ...edges, ...aggregateEdges];
+  return [...groupNodes, ...nodes, ...edges];
 }
 
 function getLayoutConfig() {
@@ -176,6 +122,12 @@ function getLayoutConfig() {
   };
 }
 
+function clearFocusMode(instance: cytoscape.Core) {
+  instance.nodes('[type="group"]').removeClass('group-focused group-dimmed');
+  instance.nodes().not('[type="group"]').removeClass('group-faded');
+  instance.edges().removeClass('group-faded');
+}
+
 function initCytoscape() {
   if (!containerRef.value || !props.graph) return;
 
@@ -194,34 +146,68 @@ function initCytoscape() {
     boxSelectionEnabled: false,
   });
 
+  // Click node — select + show details
   instance.on('tap', 'node', (evt) => {
-    if (evt.target.data('type') === 'group') return; // handled by group tap
+    if (evt.target.data('type') === 'group') return;
     const nodeId = evt.target.id();
-    // Clear previous selection
     instance.nodes().removeClass('selected-node selected-neighbor');
     instance.edges().removeClass('selected-connected');
-    // Apply persistent selection
     evt.target.addClass('selected-node');
     evt.target.connectedEdges().addClass('selected-connected');
     evt.target.neighborhood('node').addClass('selected-neighbor');
     emit('nodeClick', nodeId);
   });
 
-  // Click group to expand/collapse
+  // Click group — focus mode: dim everything else, zoom in
   instance.on('tap', 'node[type="group"]', (evt) => {
-    const groupId = evt.target.id();
-    if (expandedGroups.value.has(groupId)) {
-      expandedGroups.value.delete(groupId);
-    } else {
-      expandedGroups.value.add(groupId);
+    const target = evt.target;
+
+    // Toggle off if already focused
+    if (target.hasClass('group-focused')) {
+      clearFocusMode(instance);
+      instance.animate({
+        fit: { eles: instance.elements(), padding: 40 },
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+      return;
     }
-    initCytoscape();
+
+    // Focus this group
+    clearFocusMode(instance);
+    target.addClass('group-focused');
+    instance.nodes('[type="group"]').not(target).addClass('group-dimmed');
+
+    // Children of focused group
+    const children = target.descendants();
+    const childIds = new Set(children.map((n: any) => n.id()));
+
+    // Dim non-member nodes
+    instance.nodes().not('[type="group"]').forEach((n: any) => {
+      if (!childIds.has(n.id())) n.addClass('group-faded');
+    });
+
+    // Dim unrelated edges
+    instance.edges().forEach((e: any) => {
+      const connected = childIds.has(e.source().id()) || childIds.has(e.target().id());
+      if (!connected) e.addClass('group-faded');
+    });
+
+    // Zoom to fit the group
+    const groupEles = children.add(target);
+    instance.animate({
+      fit: { eles: groupEles, padding: 60 },
+      duration: 400,
+      easing: 'ease-out-cubic',
+    });
   });
 
+  // Click background — clear all
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
       instance.nodes().removeClass('selected-node selected-neighbor');
       instance.edges().removeClass('selected-connected');
+      clearFocusMode(instance);
     }
   });
 
@@ -276,6 +262,7 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   const instance = cy.value;
 
   stopEdgeAnimation();
+  clearFocusMode(instance);
 
   instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected selected-neighbor');
   instance.edges().removeClass('impact-path impact-unaffected selected-connected');

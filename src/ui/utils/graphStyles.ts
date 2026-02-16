@@ -63,26 +63,37 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'text-background-padding': '3px',
       } as unknown as cytoscape.Css.Node,
     },
+    // Focus mode — group highlighted
     {
-      selector: 'node[type="group"][?collapsedCount]',
+      selector: 'node[type="group"].group-focused',
       style: {
-        'width': 80,
-        'height': 40,
-        'font-size': '11px',
-        'text-valign': 'center',
-        'background-opacity': 0.8,
-        'border-style': 'solid',
-        'padding': '0px',
+        'border-color': '#6366f1',
+        'border-opacity': 0.8,
+        'border-width': 2,
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Focus mode — other groups dimmed
+    {
+      selector: 'node[type="group"].group-dimmed',
+      style: {
+        'opacity': 0.15,
+        'border-opacity': 0.1,
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Focus mode — non-member nodes/edges faded
+    {
+      selector: 'node.group-faded',
+      style: {
+        'opacity': 0.12,
+        'color': '#475569',
+        'font-size': '8px',
       } as unknown as cytoscape.Css.Node,
     },
     {
-      selector: 'edge[edgeType="aggregate"]',
+      selector: 'edge.group-faded',
       style: {
-        'width': 2.5,
-        'line-color': '#64748b',
-        'target-arrow-color': '#64748b',
-        'line-style': 'solid',
-        'opacity': 0.6,
+        'opacity': 0.06,
+        'width': 0.5,
       } as unknown as cytoscape.Css.Edge,
     },
     // Glow effect for high fan-in nodes (hub files)
