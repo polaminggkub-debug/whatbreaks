@@ -205,18 +205,17 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'opacity': 0.06,
       } as unknown as cytoscape.Css.Edge,
     },
-    // Impact styles — 3-color tiers: white root, red direct, amber indirect
+    // Impact styles — 3-color tiers using border + overlay (preserves icons/labels)
     {
       selector: 'node.impact-root',
       style: {
-        'background-color': '#334155',
-        'background-opacity': 1,
         'border-width': 4,
         'border-color': '#ffffff',
         'border-opacity': 1,
         'overlay-color': '#ffffff',
-        'overlay-opacity': 0.12,
+        'overlay-opacity': 0.2,
         'overlay-padding': 8,
+        'background-opacity': 0.4,
         'width': 64,
         'height': 44,
         'font-size': '13px',
@@ -229,14 +228,13 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node.impact-direct',
       style: {
-        'background-color': '#451a1a',
-        'background-opacity': 1,
         'border-width': 3,
         'border-color': '#ef4444',
         'border-opacity': 1,
         'overlay-color': '#ef4444',
-        'overlay-opacity': 0.2,
+        'overlay-opacity': 0.25,
         'overlay-padding': 6,
+        'background-opacity': 0.35,
         'font-size': '12px',
         'color': '#fca5a5',
         'text-max-width': '120px',
@@ -246,14 +244,13 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node.impact-indirect',
       style: {
-        'background-color': '#3b2a10',
-        'background-opacity': 1,
         'border-width': 2,
         'border-color': '#f59e0b',
         'border-opacity': 0.9,
         'overlay-color': '#f59e0b',
-        'overlay-opacity': 0.12,
+        'overlay-opacity': 0.15,
         'overlay-padding': 4,
+        'background-opacity': 0.3,
         'font-size': '11px',
         'color': '#fcd34d',
         'text-max-width': '100px',
