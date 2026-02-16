@@ -64,12 +64,14 @@ function buildElements(graph: Graph) {
 
   const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-  // Create group (compound parent) nodes — supports nested subgroups
+  // Create group (compound parent) nodes
+  // Force (cose) layout: flatten to single-level groups (cose breaks with nested compounds)
+  // Layered (dagre): full nested subgroups
   const groupNodes: cytoscape.ElementDefinition[] = [];
   const nodeParentMap = new Map<string, string>();
+  const isCose = (props.layoutMode ?? 'dagre') === 'cose';
 
   if (graph.groups?.length) {
-    // Level 0 groups first (parents)
     const level0 = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
     const level1 = graph.groups.filter(g => g.level === 1 && g.parentGroupId);
 
@@ -79,37 +81,48 @@ function buildElements(graph: Graph) {
       if (visibleDescendants.length < 2) continue;
       const color = getDominantColor(allDescendantIds, graph);
       groupNodes.push({
-        data: { id: group.id, label: group.label, type: 'group', level: group.level ?? 0, color },
+        data: { id: group.id, label: group.label, type: 'group', level: 0, color },
       });
     }
 
-    for (const sub of level1) {
-      const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
-      if (visibleChildren.length < 2) continue;
-      // Only add if parent group was added
-      const parentNode = groupNodes.find(g => g.data.id === sub.parentGroupId);
-      if (!parentNode) continue;
-      groupNodes.push({
-        data: {
-          id: sub.id,
-          label: sub.label,
-          type: 'group',
-          level: sub.level,
-          parent: sub.parentGroupId,
-          color: parentNode.data.color,
-        },
-      });
-      for (const nid of visibleChildren) {
-        nodeParentMap.set(nid, sub.id);
+    if (isCose) {
+      // Flatten: all files go directly into their level-0 parent
+      for (const group of level0) {
+        if (!groupNodes.find(g => g.data.id === group.id)) continue;
+        const allDescendantIds = getAllDescendantNodeIds(group, graph.groups);
+        for (const nid of allDescendantIds) {
+          if (nodeIds.has(nid)) nodeParentMap.set(nid, group.id);
+        }
       }
-    }
+    } else {
+      // Nested: subgroups as compound children
+      for (const sub of level1) {
+        const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
+        if (visibleChildren.length < 2) continue;
+        const parentNode = groupNodes.find(g => g.data.id === sub.parentGroupId);
+        if (!parentNode) continue;
+        groupNodes.push({
+          data: {
+            id: sub.id,
+            label: sub.label,
+            type: 'group',
+            level: sub.level,
+            parent: sub.parentGroupId,
+            color: parentNode.data.color,
+          },
+        });
+        for (const nid of visibleChildren) {
+          nodeParentMap.set(nid, sub.id);
+        }
+      }
 
-    // Files not claimed by subgroups stay in parent group directly
-    for (const group of level0) {
-      if (!groupNodes.find(g => g.data.id === group.id)) continue;
-      for (const nid of group.nodeIds) {
-        if (nodeIds.has(nid) && !nodeParentMap.has(nid)) {
-          nodeParentMap.set(nid, group.id);
+      // Files not claimed by subgroups stay in parent group directly
+      for (const group of level0) {
+        if (!groupNodes.find(g => g.data.id === group.id)) continue;
+        for (const nid of group.nodeIds) {
+          if (nodeIds.has(nid) && !nodeParentMap.has(nid)) {
+            nodeParentMap.set(nid, group.id);
+          }
         }
       }
     }
@@ -170,7 +183,7 @@ function getLayoutConfig() {
     name: 'cose',
     animate: !prefersReducedMotion,
     animationDuration: prefersReducedMotion ? 0 : 800,
-    padding: 40,
+    padding: 30,
     nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
     idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
     edgeElasticity: () => 100,
