@@ -221,6 +221,24 @@ function getLayoutConfig() {
     };
   }
 
+  // Build soft directional constraints: upstream (low layerIndex) at top
+  const nodeLayerMap = new Map<string, number>();
+  for (const n of props.graph.nodes) {
+    nodeLayerMap.set(n.id, n.layerIndex ?? 0);
+  }
+
+  const constraints: { top: string; bottom: string }[] = [];
+  for (const edge of props.graph.edges) {
+    if (edge.type !== 'import') continue;
+    const srcLayer = nodeLayerMap.get(edge.source) ?? 0;
+    const tgtLayer = nodeLayerMap.get(edge.target) ?? 0;
+    // Skip same-layer and test nodes
+    if (Math.abs(srcLayer - tgtLayer) < 1) continue;
+    if (srcLayer === -1 || tgtLayer === -1) continue;
+    // source imports target → target is upstream → target on top
+    constraints.push({ top: edge.target, bottom: edge.source });
+  }
+
   return {
     name: 'fcose',
     animate: !prefersReducedMotion,
@@ -235,7 +253,8 @@ function getLayoutConfig() {
     fit: true,
     randomize: true,
     quality: 'default',
-    nodeSeparation: 75,
+    nodeSeparation: 40,
+    relativePlacementConstraint: constraints.length > 0 ? constraints : undefined,
   };
 }
 
