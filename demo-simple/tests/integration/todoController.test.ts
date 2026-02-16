@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { handleAddTodo, handleListTodos, handleCompleteTodo } from '../src/api/todoController.js';
-import { clearStore } from '../src/services/todoService.js';
+import { handleAddTodo, handleListTodos, handleCompleteTodo } from '../../src/api/todoController.js';
+import { clearStore } from '../../src/services/todoService.js';
 
 describe('todoController', () => {
   beforeEach(() => clearStore());

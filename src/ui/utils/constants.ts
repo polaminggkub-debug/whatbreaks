@@ -1,3 +1,14 @@
+/** Test pyramid level colors — typed with TestLevel for safety */
+import type { TestLevel } from '../../types/graph.js';
+
+/**
+ * Color palette design: 3 separate hue families, no overlap.
+ *
+ * STRUCTURE (Layers)  → Cool spectrum: teal, blue, purple, pink
+ * TEST TYPE (Pyramid) → Warm spectrum: red, amber, yellow
+ * FAILURE IMPACT      → Red monochrome scale: dark red → light red → gray
+ */
+
 /** Path-based layer colors (used for NodePanel badge) */
 export const LAYER_COLORS: Record<string, string> = {
   page: '#6366f1',
@@ -10,16 +21,14 @@ export const LAYER_COLORS: Record<string, string> = {
 };
 
 /** Depth-based architectural layer colors (for graph nodes)
- * Semantic palette: each color communicates role at a glance.
- * Warm amber for entry = "top", cool teal for foundation = "base",
- * blue for core logic, purple for orchestration, muted gray for tests.
+ * Cool spectrum: each hue is distinct, no collision with warm test colors.
  */
 export const DEPTH_LAYER_COLORS: Record<number, string> = {
-  0: '#2dd4bf',   // Foundation — Teal-green (stable, base)
-  1: '#3b82f6',   // Core — Blue (main logic, system brain)
-  2: '#a855f7',   // Feature — Purple (orchestration, business logic)
-  3: '#f59e0b',   // Entry — Amber (entry point, top layer)
-  [-1]: '#94a3b8', // Test — Slate gray (quiet, doesn't compete)
+  0: '#14b8a6',   // Foundation — Teal (stable, base)
+  1: '#3b82f6',   // Core — Blue (main logic)
+  2: '#8b5cf6',   // Feature — Purple (orchestration)
+  3: '#ec4899',   // Entry — Pink (entry point, top layer)
+  [-1]: '#64748b', // Test — Slate gray (overridden by testLevel colors)
 };
 
 /** Depth-based layer labels */
@@ -31,11 +40,12 @@ export const DEPTH_LAYER_LABELS: Record<number, string> = {
   [-1]: 'Test',
 };
 
+/** Impact colors — red monochrome scale (darker = higher impact) */
 export const IMPACT_COLORS: Record<string, string> = {
-  root: '#ef4444',
-  direct: '#f59e0b',
-  indirect: '#eab308',
-  unaffected: '#64748b',
+  root: '#dc2626',       // Red 600 — root cause
+  direct: '#f87171',     // Red 400 — directly affected
+  indirect: '#fecaca',   // Red 200 — indirectly affected
+  unaffected: '#6b7280', // Gray 500 — not affected
 };
 
 export const LAYERS = [
@@ -44,22 +54,36 @@ export const LAYERS = [
   { key: 'feature', label: 'Feature', color: '#8b5cf6' },
   { key: 'entity', label: 'Entity', color: '#a855f7' },
   { key: 'shared', label: 'Shared', color: '#06b6d4' },
-  { key: 'test', label: 'Test', color: '#14b8a6' },
+  { key: 'test', label: 'Test', color: '#64748b' },
   { key: 'config', label: 'Config', color: '#64748b' },
 ] as const;
 
-/** Depth-based layers for legend */
+/** Depth-based layers for legend — labeled "Structure" */
 export const DEPTH_LAYERS = [
-  { key: 0, label: 'Foundation', color: '#2dd4bf' },
+  { key: 0, label: 'Foundation', color: '#14b8a6' },
   { key: 1, label: 'Core', color: '#3b82f6' },
-  { key: 2, label: 'Feature', color: '#a855f7' },
-  { key: 3, label: 'Entry', color: '#f59e0b' },
-  { key: -1, label: 'Test', color: '#94a3b8' },
+  { key: 2, label: 'Feature', color: '#8b5cf6' },
+  { key: 3, label: 'Entry', color: '#ec4899' },
 ] as const;
 
+/** Impact legend — labeled "Failure Impact" */
 export const IMPACTS = [
-  { key: 'root', label: 'Root', color: '#ef4444' },
-  { key: 'direct', label: 'Direct', color: '#f59e0b' },
-  { key: 'indirect', label: 'Indirect', color: '#eab308' },
-  { key: 'unaffected', label: 'Unaffected', color: '#64748b' },
+  { key: 'root', label: 'Root', color: '#dc2626' },
+  { key: 'direct', label: 'Direct', color: '#f87171' },
+  { key: 'indirect', label: 'Indirect', color: '#fecaca' },
+  { key: 'unaffected', label: 'Unaffected', color: '#6b7280' },
+] as const;
+
+/** Test pyramid colors — red is reserved for impact only */
+export const TEST_LEVEL_COLORS: Record<TestLevel, string> = {
+  unit: '#94a3b8',        // Gray — bulk of pyramid
+  integration: '#f59e0b', // Amber — middle layer
+  e2e: '#a855f7',         // Purple — top of pyramid, no conflict with impact red
+};
+
+/** Test pyramid legend items — ordered top-to-bottom (E2E first = top of pyramid) */
+export const TEST_PYRAMID_LEGEND = [
+  { key: 'e2e', label: 'E2E', color: '#a855f7' },
+  { key: 'integration', label: 'Integration', color: '#f59e0b' },
+  { key: 'unit', label: 'Unit', color: '#94a3b8' },
 ] as const;

@@ -97,6 +97,56 @@ Developers who move fast (especially with AI tools) and need a quick way to unde
 
 WhatBreaks answers that in seconds.
 
+## Supported test types
+
+WhatBreaks classifies tests by **level**, not by runner:
+
+| Level | Detected by | Examples |
+|-------|------------|---------|
+| Unit | `unit/` directory, default fallback | `tests/unit/auth.test.ts` |
+| Integration | `integration/` directory, filename pattern | `tests/integration/api.test.ts` |
+| E2E | `e2e/` directory, Playwright/Cypress imports | `tests/e2e/login.spec.ts` |
+
+Detection priority: config override > directory > filename > import heuristic > default (unit)
+
+WhatBreaks does **NOT** run tests. It only analyzes file relationships.
+
+### Works with messy AI-generated test folders
+
+```
+tests/
+  test1.ts
+  loginFlow.ts
+```
+
+If a file imports `@playwright/test`, WhatBreaks classifies it as E2E automatically — no directory structure needed.
+
+### Recognized test file patterns (runner-agnostic)
+
+| Framework | Patterns |
+|-----------|----------|
+| Vitest / Jest | `.test.ts`, `.spec.ts`, `.test.js`, `.spec.js` |
+| Playwright | `.spec.ts`, `@playwright/test` imports |
+| Pytest | `test_*.py`, `*_test.py` |
+| Go testing | `*_test.go` |
+| RSpec | `*_spec.rb` |
+| Minitest | `*_test.rb` |
+| PHPUnit | `*Test.php` |
+
+### Optional config override
+
+For non-standard layouts, add `.whatbreaks.config.json`:
+
+```json
+{
+  "testLevels": {
+    "**/e2e/**": "e2e",
+    "**/specs/**": "integration",
+    "**/my-tests/**": "unit"
+  }
+}
+```
+
 ## Works with
 
 - **TypeScript / JavaScript** — `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`

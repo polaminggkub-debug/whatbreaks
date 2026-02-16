@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { validateTitle, validateTodo } from '../src/utils/validator.js';
-import { createTodo } from '../src/models/todo.js';
+import { validateTitle, validateTodo } from '../../src/utils/validator.js';
+import { createTodo } from '../../src/models/todo.js';
 
 describe('validator', () => {
   it('accepts valid title', () => {

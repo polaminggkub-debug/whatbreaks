@@ -1,6 +1,7 @@
 export type NodeLayer = 'ui' | 'feature' | 'shared' | 'entity' | 'page' | 'test' | 'config';
 export type NodeType = 'source' | 'test' | 'type-only';
 export type EdgeType = 'import' | 'test-covers';
+export type TestLevel = 'unit' | 'integration' | 'e2e';
 export type AnalysisMode = 'failing' | 'refactor';
 export type RiskLevel = 'high' | 'medium' | 'low';
 
@@ -9,6 +10,7 @@ export interface GraphNode {
   label: string;
   layer: NodeLayer;
   type: NodeType;
+  testLevel?: TestLevel;
   functions: string[];
   depth: number;
   layerIndex: number;

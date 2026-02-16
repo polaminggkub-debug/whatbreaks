@@ -1,5 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import micromatch from 'micromatch';
 import type { ParsedFile } from './importParser.js';
-import type { GraphEdge } from '../types/graph.js';
+import type { GraphEdge, TestLevel } from '../types/graph.js';
 
 const TEST_FILE_PATTERNS = [
   // TypeScript / JavaScript / Vue
@@ -88,4 +91,79 @@ export function mapTestCoverage(
   }
 
   return edges;
+}
+
+// --- Test level classification ---
+
+interface TestLevelConfig {
+  testLevels?: Record<string, TestLevel>;
+}
+
+let cachedConfig: TestLevelConfig | null = null;
+let configLoadedForRoot: string | null = null;
+
+function loadTestLevelConfig(projectRoot: string): TestLevelConfig {
+  if (cachedConfig && configLoadedForRoot === projectRoot) return cachedConfig;
+
+  const configPath = path.join(projectRoot, '.whatbreaks.config.json');
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    cachedConfig = JSON.parse(raw) as TestLevelConfig;
+  } catch {
+    cachedConfig = {};
+  }
+  configLoadedForRoot = projectRoot;
+  return cachedConfig;
+}
+
+// Layer 2: Directory convention
+const DIR_E2E = /[/\\](e2e|e2e-tests|cypress|playwright)[/\\]/;
+const DIR_INTEGRATION = /[/\\](integration|integration-tests)[/\\]/;
+const DIR_UNIT = /[/\\](unit|unit-tests|__tests__)[/\\]/;
+
+// Layer 3: Filename convention
+const FILE_E2E = /\.e2e\.(spec|test)\.\w+$|\.e2e\.\w+$/;
+const FILE_INTEGRATION = /\.(integration|int)\.(spec|test)\.\w+$/;
+
+// Layer 4: Import heuristic — known framework packages
+const E2E_IMPORTS = ['@playwright/test', 'cypress', 'puppeteer', 'webdriverio'];
+const INTEGRATION_IMPORTS = ['supertest', '@nestjs/testing', 'superagent'];
+
+/**
+ * Classify a test file's pyramid level.
+ * Uses a 5-layer detection chain: config > directory > filename > imports > default.
+ */
+export function classifyTestLevel(
+  filePath: string,
+  imports: string[],
+  projectRoot?: string,
+): TestLevel {
+  // Layer 1: Config glob override
+  if (projectRoot) {
+    const config = loadTestLevelConfig(projectRoot);
+    if (config.testLevels) {
+      const relativePath = path.relative(projectRoot, filePath);
+      for (const [glob, level] of Object.entries(config.testLevels)) {
+        if (micromatch.isMatch(relativePath, glob)) return level;
+      }
+    }
+  }
+
+  // Layer 2: Directory convention
+  if (DIR_E2E.test(filePath)) return 'e2e';
+  if (DIR_INTEGRATION.test(filePath)) return 'integration';
+  if (DIR_UNIT.test(filePath)) return 'unit';
+
+  // Layer 3: Filename convention
+  if (FILE_E2E.test(filePath)) return 'e2e';
+  if (FILE_INTEGRATION.test(filePath)) return 'integration';
+
+  // Layer 4: Import heuristic (from already-parsed imports, no extra fs reads)
+  for (const imp of imports) {
+    if (E2E_IMPORTS.some((pkg) => imp.includes(pkg))) return 'e2e';
+    if (INTEGRATION_IMPORTS.some((pkg) => imp.includes(pkg))) return 'integration';
+  }
+
+  // Layer 5: Default
+  return 'unit';
 }

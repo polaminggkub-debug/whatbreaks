@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { addTodo, getTodos, completeTodo, getTodosByUser, clearStore } from '../src/services/todoService.js';
+import { addTodo, getTodos, completeTodo, getTodosByUser, clearStore } from '../../src/services/todoService.js';
 
 describe('todoService', () => {
   beforeEach(() => clearStore());

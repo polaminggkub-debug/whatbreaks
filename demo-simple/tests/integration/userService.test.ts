@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { registerUser, findUser, clearUsers } from '../src/services/userService.js';
+import { registerUser, findUser, clearUsers } from '../../src/services/userService.js';
 
 describe('userService', () => {
   beforeEach(() => clearUsers());

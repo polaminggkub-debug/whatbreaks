@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { formatTodo, formatTodoList } from '../src/utils/formatter.js';
-import { createTodo } from '../src/models/todo.js';
+import { formatTodo, formatTodoList } from '../../src/utils/formatter.js';
+import { createTodo } from '../../src/models/todo.js';
 
 describe('formatter', () => {
   it('formats incomplete todo', () => {

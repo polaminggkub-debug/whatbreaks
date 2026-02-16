@@ -8,7 +8,7 @@ import type {
 } from '../types/graph.js';
 import { scanFiles } from './fileScanner.js';
 import type { ParsedFile } from './importParser.js';
-import { isTestFile, mapTestCoverage } from './testMapper.js';
+import { isTestFile, mapTestCoverage, classifyTestLevel } from './testMapper.js';
 import { classifyLayer } from './layerClassifier.js';
 import { computeVisualMetrics } from '../engine/metrics.js';
 import { getParserForFile } from './parsers/index.js';
@@ -17,7 +17,7 @@ export { scanFiles } from './fileScanner.js';
 export { parseImports } from './importParser.js';
 export type { ParsedFile } from './importParser.js';
 export { parseVueFile } from './vueParser.js';
-export { isTestFile, mapTestCoverage } from './testMapper.js';
+export { isTestFile, mapTestCoverage, classifyTestLevel } from './testMapper.js';
 export { classifyLayer } from './layerClassifier.js';
 export { getParserForFile } from './parsers/index.js';
 export type { LanguageParser } from './parsers/index.js';
@@ -73,6 +73,9 @@ export async function scanRepository(
     const fileIsTest = isTestFile(filePath);
 
     const nodeType: NodeType = fileIsTest ? 'test' : 'source';
+    const testLevel = fileIsTest
+      ? classifyTestLevel(filePath, parsed.imports, projectRoot)
+      : undefined;
 
     // Extract function names from exports for the node
     const functions = parsed.exports;
@@ -88,6 +91,7 @@ export async function scanRepository(
       label,
       layer,
       type: nodeType,
+      testLevel,
       functions,
       depth: 0,
       layerIndex: 0,
@@ -96,10 +100,12 @@ export async function scanRepository(
     });
   }
 
-  // Step 4: Build import edges
+  // Step 4: Build import edges (skip test files — they get test-covers edges instead)
   const importEdges: GraphEdge[] = [];
 
   for (const [filePath, parsed] of parsedFiles) {
+    if (isTestFile(filePath)) continue;
+
     for (const importedPath of parsed.imports) {
       // Only create edges to files that exist in our scanned set
       if (!parsedFiles.has(importedPath)) continue;

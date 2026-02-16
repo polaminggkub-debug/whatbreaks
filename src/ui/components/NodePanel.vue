@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { Graph, GraphNode, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
-import { LAYER_COLORS, IMPACT_COLORS, DEPTH_LAYER_COLORS, DEPTH_LAYER_LABELS } from '../utils/constants';
+import { LAYER_COLORS, IMPACT_COLORS, DEPTH_LAYER_COLORS, DEPTH_LAYER_LABELS, TEST_LEVEL_COLORS } from '../utils/constants';
 import TestCommand from './TestCommand.vue';
 
 const props = defineProps<{
@@ -95,7 +95,7 @@ function copyPath() {
         </div>
       </div>
 
-      <!-- Layer + Type -->
+      <!-- Layer + Type + Test Level -->
       <div class="section row-section">
         <div>
           <div class="section-label">Layer</div>
@@ -106,6 +106,12 @@ function copyPath() {
         <div>
           <div class="section-label">Type</div>
           <span class="badge type-badge">{{ node.type }}</span>
+        </div>
+        <div v-if="node.type === 'test'">
+          <div class="section-label">Test Level</div>
+          <span class="badge" :style="{ background: TEST_LEVEL_COLORS[node.testLevel ?? 'unit'] ?? '#94a3b8' }">
+            {{ node.testLevel ?? 'unit' }}
+          </span>
         </div>
       </div>
 

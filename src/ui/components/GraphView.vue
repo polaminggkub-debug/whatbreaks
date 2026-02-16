@@ -45,7 +45,8 @@ function buildElements(graph: Graph) {
       type: n.type,
       functions: n.functions,
       color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
-      icon: getFileIcon(n.id, n.type),
+      testLevel: n.testLevel ?? 'unit',
+      icon: getFileIcon(n.id, n.type, n.testLevel),
       nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
       layerIndex: n.layerIndex ?? 0,
       fanIn: n.fanIn ?? 0,
@@ -119,6 +120,7 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'font-weight': 700,
       } as unknown as cytoscape.Css.Node,
     },
+    // Test nodes use structural layer color (border) — test level is encoded by icon shape
     {
       selector: 'node:active',
       style: {
@@ -151,12 +153,14 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
+    // Impact styles — overlay/glow channel (preserves structural border color)
     {
       selector: 'node.impact-root',
       style: {
-        'background-color': '#ef4444',
-        'border-color': '#fca5a5',
-        'border-width': 3,
+        'overlay-color': '#dc2626',
+        'overlay-opacity': 0.35,
+        'overlay-padding': 8,
+        'border-width': 4,
         'width': 60,
         'height': 42,
         'font-size': '12px',
@@ -168,29 +172,28 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node.impact-direct',
       style: {
-        'background-color': '#f59e0b',
-        'border-color': '#fcd34d',
+        'overlay-color': '#f87171',
+        'overlay-opacity': 0.25,
+        'overlay-padding': 6,
         'border-width': 3,
-        'color': '#fcd34d',
+        'color': '#fecaca',
         'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
     {
       selector: 'node.impact-indirect',
       style: {
-        'background-color': '#eab308',
-        'border-color': '#fde047',
+        'overlay-color': '#fecaca',
+        'overlay-opacity': 0.15,
+        'overlay-padding': 4,
         'border-width': 2,
-        'color': '#fde047',
+        'color': '#fecaca',
         'z-index': 997,
       } as unknown as cytoscape.Css.Node,
     },
     {
       selector: 'node.impact-unaffected',
       style: {
-        'background-color': '#1e293b',
-        'border-color': '#334155',
-        'border-width': 1,
         'opacity': 0.25,
         'color': '#475569',
         'font-size': '8px',
@@ -233,8 +236,8 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'edge.impact-path',
       style: {
-        'line-color': '#ef4444',
-        'target-arrow-color': '#ef4444',
+        'line-color': '#dc2626',
+        'target-arrow-color': '#dc2626',
         'opacity': 1,
         'width': 2.5,
         'z-index': 998,

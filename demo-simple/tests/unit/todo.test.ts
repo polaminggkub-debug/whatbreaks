@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createTodo } from '../src/models/todo.js';
+import { createTodo } from '../../src/models/todo.js';
 
 describe('createTodo', () => {
   it('creates a todo with defaults', () => {
