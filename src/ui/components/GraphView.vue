@@ -295,7 +295,7 @@ function initCytoscape() {
     }
   });
 
-  // Click node — focus mode: dim unrelated, zoom to neighborhood
+  // Click node — focus mode: show full transitive dependency chain
   instance.on('tap', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
     const node = evt.target;
@@ -303,23 +303,38 @@ function initCytoscape() {
     instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
 
     node.addClass('selected-node');
-    node.connectedEdges().addClass('selected-connected');
-    const neighbors = node.neighborhood('node').not('[type="group"]');
-    neighbors.addClass('selected-neighbor');
 
-    // Dim everything outside the focus set
-    instance.nodes().not(node).not(neighbors).not('[type="group"]').addClass('selected-dimmed');
-    instance.edges().not(node.connectedEdges()).addClass('selected-dimmed');
+    // Full transitive chain: upstream (importers) + downstream (imports)
+    const downstream = node.successors();
+    const upstream = node.predecessors();
+    const chain = downstream.union(upstream);
 
-    // Keep parent groups of visible nodes visible
-    node.union(neighbors).forEach((n: any) => {
-      const parent = n.parent();
-      if (parent.length) parent.removeClass('selected-dimmed');
+    const chainNodes = chain.nodes().not('[type="group"]');
+    const chainEdges = chain.edges();
+
+    chainNodes.addClass('selected-neighbor');
+    chainEdges.addClass('selected-connected');
+
+    // Build focus set for quick lookup
+    const focusNodeIds = new Set<string>();
+    focusNodeIds.add(node.id());
+    chainNodes.forEach((n: any) => focusNodeIds.add(n.id()));
+
+    // Dim everything outside the chain
+    const focusNodes = node.union(chainNodes);
+    instance.nodes().not(focusNodes).not('[type="group"]').addClass('selected-dimmed');
+    instance.edges().not(chainEdges).addClass('selected-dimmed');
+
+    // Dim groups with no descendants in the chain
+    instance.nodes('[type="group"]').forEach((g: any) => {
+      const descendants = g.descendants().not('[type="group"]');
+      const hasChainMember = descendants.some((child: any) => focusNodeIds.has(child.id()));
+      if (!hasChainMember) g.addClass('selected-dimmed');
     });
 
-    // Adaptive zoom: fit neighborhood if readable, otherwise center on node
-    const hood = node.closedNeighborhood();
-    const bb = hood.boundingBox();
+    // Adaptive zoom: fit chain if readable, otherwise center on node
+    const chainEles = focusNodes.union(chainEdges);
+    const bb = chainEles.boundingBox();
     const pad = 100;
     const fitZoom = Math.min(
       (instance.width() - 2 * pad) / bb.w,
@@ -328,7 +343,7 @@ function initCytoscape() {
 
     if (fitZoom >= 0.5) {
       instance.animate({
-        fit: { eles: hood, padding: pad },
+        fit: { eles: chainEles, padding: pad },
         duration: 400,
         easing: 'ease-out-cubic',
       });
@@ -609,11 +624,35 @@ function focusNode(nodeId: string) {
   const node = instance.getElementById(nodeId);
   if (!node.length) return;
 
-  instance.nodes().removeClass('selected-node selected-neighbor');
-  instance.edges().removeClass('selected-connected');
+  instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
+
   node.addClass('selected-node');
-  node.connectedEdges().addClass('selected-connected');
-  node.neighborhood('node').addClass('selected-neighbor');
+
+  // Full transitive chain
+  const downstream = node.successors();
+  const upstream = node.predecessors();
+  const chain = downstream.union(upstream);
+
+  const chainNodes = chain.nodes().not('[type="group"]');
+  const chainEdges = chain.edges();
+
+  chainNodes.addClass('selected-neighbor');
+  chainEdges.addClass('selected-connected');
+
+  const focusNodeIds = new Set<string>();
+  focusNodeIds.add(node.id());
+  chainNodes.forEach((n: any) => focusNodeIds.add(n.id()));
+
+  const focusNodes = node.union(chainNodes);
+  instance.nodes().not(focusNodes).not('[type="group"]').addClass('selected-dimmed');
+  instance.edges().not(chainEdges).addClass('selected-dimmed');
+
+  // Dim groups with no descendants in the chain
+  instance.nodes('[type="group"]').forEach((g: any) => {
+    const descendants = g.descendants().not('[type="group"]');
+    const hasChainMember = descendants.some((child: any) => focusNodeIds.has(child.id()));
+    if (!hasChainMember) g.addClass('selected-dimmed');
+  });
 
   instance.animate({
     center: { eles: node },

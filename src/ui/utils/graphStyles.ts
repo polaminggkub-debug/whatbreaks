@@ -185,11 +185,18 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
-    // Click-to-focus — dimmed nodes/edges outside the focus set
+    // Click-to-focus — dimmed nodes/edges/groups outside the chain
     {
       selector: 'node.selected-dimmed',
       style: {
         'opacity': 0.12,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node[type="group"].selected-dimmed',
+      style: {
+        'opacity': 0.12,
+        'border-opacity': 0.1,
       } as unknown as cytoscape.Css.Node,
     },
     {
