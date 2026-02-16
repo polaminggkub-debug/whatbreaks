@@ -72,12 +72,13 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node',
       style: {
-        'background-color': '#1e293b',
+        'background-color': 'data(color)',
         'background-image': 'data(icon)',
         'background-fit': 'contain',
         'background-clip': 'none',
         'background-width': '70%',
         'background-height': '70%',
+        'background-opacity': 0.15,
         'label': 'data(label)',
         'color': '#e2e8f0',
         'font-size': '11px',
@@ -92,12 +93,30 @@ function getStylesheet(): cytoscape.Stylesheet[] {
         'shape': 'roundrectangle',
         'border-width': 2,
         'border-color': 'data(color)',
-        'border-opacity': 0.6,
+        'border-opacity': 0.8,
         'text-wrap': 'ellipsis',
         'text-max-width': '80px',
         'overlay-padding': 4,
         'transition-property': 'background-color, border-color, opacity, border-width',
         'transition-duration': 250,
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Glow effect for high fan-in nodes (hub files)
+    {
+      selector: 'node[fanIn >= 4]',
+      style: {
+        'border-width': 3,
+        'border-opacity': 1,
+        'background-opacity': 0.25,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node[fanIn >= 6]',
+      style: {
+        'border-width': 4,
+        'border-opacity': 1,
+        'background-opacity': 0.35,
+        'font-weight': 700,
       } as unknown as cytoscape.Css.Node,
     },
     {
@@ -180,13 +199,13 @@ function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'edge',
       style: {
-        'width': 1.5,
+        'width': 1.2,
         'line-color': '#475569',
         'target-arrow-color': '#475569',
         'target-arrow-shape': 'triangle',
         'arrow-scale': 0.8,
         'curve-style': 'bezier',
-        'opacity': 0.6,
+        'opacity': 0.4,
         'transition-property': 'line-color, target-arrow-color, opacity, width',
         'transition-duration': 250,
       } as unknown as cytoscape.Css.Edge,
@@ -196,8 +215,8 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       style: {
         'line-color': '#94a3b8',
         'target-arrow-color': '#94a3b8',
-        'opacity': 1,
-        'width': 2.5,
+        'opacity': 0.9,
+        'width': 2,
         'z-index': 999,
       } as unknown as cytoscape.Css.Edge,
     },
@@ -206,8 +225,8 @@ function getStylesheet(): cytoscape.Stylesheet[] {
       style: {
         'line-color': '#94a3b8',
         'target-arrow-color': '#94a3b8',
-        'opacity': 1,
-        'width': 2.5,
+        'opacity': 0.9,
+        'width': 2,
         'z-index': 998,
       } as unknown as cytoscape.Css.Edge,
     },

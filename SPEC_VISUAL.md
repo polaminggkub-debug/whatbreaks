@@ -116,17 +116,17 @@ size = 30 + log2(fanIn + 1) * 12
 
 ### Base Color = Architectural Layer
 
-Cool tones only. Applied by `layerIndex`:
+Semantic palette — each color communicates role at a glance. Mix of warm and cool tones for maximum contrast. Applied by `layerIndex`:
 
-| Layer              | `layerIndex` | Color          | Hex       |
-|--------------------|--------------|----------------|-----------|
-| Foundation         | 0            | Teal           | `#14b8a6` |
-| Core               | 1            | Blue           | `#3b82f6` |
-| Feature            | 2            | Purple         | `#a855f7` |
-| Entry              | 3            | Dark Blue      | `#1e40af` |
-| Test (separate)    | —            | Soft Gray-Blue | `#64748b` |
+| Layer              | `layerIndex` | Color          | Hex       | Feeling                         |
+|--------------------|--------------|----------------|-----------|----------------------------------|
+| Foundation         | 0            | Teal-green     | `#2dd4bf` | Stable, base, low-level          |
+| Core               | 1            | Blue           | `#3b82f6` | Main logic, system brain         |
+| Feature            | 2            | Purple         | `#a855f7` | Orchestration, business logic    |
+| Entry              | 3            | Amber          | `#f59e0b` | Entry point, top layer, warm     |
+| Test (separate)    | —            | Slate gray     | `#94a3b8` | Quiet, doesn't compete with prod |
 
-These colors represent **structural role**, not status.
+These colors represent **structural role**, not status. The warm amber for Entry creates an "anchor color" that immediately signals hierarchy — your eye lands on it first, then traces down through cool tones to Foundation.
 
 ### Runtime Failure Overlay
 
@@ -141,11 +141,13 @@ When a test fails, apply overlay **on top of** base color (do not replace it):
 
 **When failure clears, revert to base colors.**
 
-### Risk Highlight (Optional, Non-Red)
+### Visual Hierarchy — Hub Glow + Edge Opacity
 
-For high fan-in nodes in normal mode:
-- Subtle blue glow or thicker border
-- **Never** use red for risk indication
+**High fan-in glow:** Nodes with 4+ dependents get thicker border + stronger fill. Nodes with 6+ get bold text. This makes hub files visually "glow" — you see the core of the system instantly without reading labels.
+
+**Edge opacity:** Base edges are very quiet (`opacity: 0.2`). On hover/select they jump to `0.9`. During impact analysis, affected paths go full `1.0` while unaffected drop to `0.1`. This keeps the graph clean and lets the structure emerge from nodes, not spaghetti lines.
+
+- **Never** use red for risk indication — red is reserved for failure only
 
 ---
 

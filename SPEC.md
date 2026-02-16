@@ -406,10 +406,12 @@ function computeBlastRadius(graph, changedFileId):
 | Broken / Root cause | Red | #ef4444 |
 | Affected (direct) | Orange | #f59e0b |
 | Affected (indirect) | Yellow | #eab308 |
-| OK / Unaffected | Green | #22c55e |
-| UI layer (default) | Blue | #3b82f6 |
-| Data layer (default) | Purple | #8b5cf6 |
-| Test (passing) | Teal | #14b8a6 |
+| OK / Unaffected | Slate | #64748b |
+| Foundation layer | Teal-green | #2dd4bf |
+| Core layer | Blue | #3b82f6 |
+| Feature layer | Purple | #a855f7 |
+| Entry layer | Amber | #f59e0b |
+| Test (default) | Slate gray | #94a3b8 |
 | Test (failing/at risk) | Red | #ef4444 |
 
 **Interactions:**

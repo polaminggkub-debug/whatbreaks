@@ -9,13 +9,17 @@ export const LAYER_COLORS: Record<string, string> = {
   config: '#64748b',
 };
 
-/** Depth-based architectural layer colors (for graph nodes) */
+/** Depth-based architectural layer colors (for graph nodes)
+ * Semantic palette: each color communicates role at a glance.
+ * Warm amber for entry = "top", cool teal for foundation = "base",
+ * blue for core logic, purple for orchestration, muted gray for tests.
+ */
 export const DEPTH_LAYER_COLORS: Record<number, string> = {
-  0: '#14b8a6',   // Foundation — Teal
-  1: '#3b82f6',   // Core — Blue
-  2: '#a855f7',   // Feature — Purple
-  3: '#1e40af',   // Entry — Dark Blue
-  [-1]: '#06b6d4', // Test — Cyan
+  0: '#2dd4bf',   // Foundation — Teal-green (stable, base)
+  1: '#3b82f6',   // Core — Blue (main logic, system brain)
+  2: '#a855f7',   // Feature — Purple (orchestration, business logic)
+  3: '#f59e0b',   // Entry — Amber (entry point, top layer)
+  [-1]: '#94a3b8', // Test — Slate gray (quiet, doesn't compete)
 };
 
 /** Depth-based layer labels */
@@ -46,11 +50,11 @@ export const LAYERS = [
 
 /** Depth-based layers for legend */
 export const DEPTH_LAYERS = [
-  { key: 0, label: 'Foundation', color: '#14b8a6' },
+  { key: 0, label: 'Foundation', color: '#2dd4bf' },
   { key: 1, label: 'Core', color: '#3b82f6' },
   { key: 2, label: 'Feature', color: '#a855f7' },
-  { key: 3, label: 'Entry', color: '#1e40af' },
-  { key: -1, label: 'Test', color: '#06b6d4' },
+  { key: 3, label: 'Entry', color: '#f59e0b' },
+  { key: -1, label: 'Test', color: '#94a3b8' },
 ] as const;
 
 export const IMPACTS = [
