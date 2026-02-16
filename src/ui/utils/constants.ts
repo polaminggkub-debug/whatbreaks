@@ -42,10 +42,10 @@ export const DEPTH_LAYER_LABELS: Record<number, string> = {
 
 /** Impact colors — red monochrome scale (darker = higher impact) */
 export const IMPACT_COLORS: Record<string, string> = {
-  root: '#dc2626',       // Red 600 — root cause
-  direct: '#f87171',     // Red 400 — directly affected
-  indirect: '#fecaca',   // Red 200 — indirectly affected
-  unaffected: '#6b7280', // Gray 500 — not affected
+  root: '#ffffff',       // White — root cause (stands out)
+  direct: '#ef4444',     // Red — directly affected
+  indirect: '#f59e0b',   // Amber — indirectly affected
+  unaffected: '#6b7280', // Gray — not affected
 };
 
 export const LAYERS = [
@@ -68,9 +68,9 @@ export const DEPTH_LAYERS = [
 
 /** Impact legend — labeled "Failure Impact" */
 export const IMPACTS = [
-  { key: 'root', label: 'Root', color: '#dc2626' },
-  { key: 'direct', label: 'Direct', color: '#f87171' },
-  { key: 'indirect', label: 'Indirect', color: '#fecaca' },
+  { key: 'root', label: 'Root', color: '#ffffff' },
+  { key: 'direct', label: 'Direct', color: '#ef4444' },
+  { key: 'indirect', label: 'Indirect', color: '#f59e0b' },
   { key: 'unaffected', label: 'Unaffected', color: '#6b7280' },
 ] as const;
 

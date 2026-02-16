@@ -487,7 +487,7 @@ function startEdgeAnimation() {
   function tick() {
     if (!cy.value) return;
     offset = (offset + speed) % 24;
-    const impactEdges = cy.value.edges('.impact-path');
+    const impactEdges = cy.value.edges('.impact-path, .impact-path-indirect');
     if (impactEdges.length === 0) {
       edgeAnimationId = null;
       return;
@@ -507,7 +507,7 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   clearFocusMode(instance);
 
   instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected selected-neighbor');
-  instance.edges().removeClass('impact-path impact-unaffected selected-connected');
+  instance.edges().removeClass('impact-path impact-path-indirect impact-unaffected selected-connected');
 
   if (!result) return;
 
@@ -581,11 +581,20 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
     }
   });
 
+  // Classify edges: direct (root↔direct) vs indirect (any other affected pair)
+  const directIds = new Set<string>();
+  instance.nodes('.impact-root').forEach((n: any) => directIds.add(n.id()));
+  instance.nodes('.impact-direct').forEach((n: any) => directIds.add(n.id()));
+
   instance.edges().forEach(e => {
     const src = e.source().id();
     const tgt = e.target().id();
     if (affectedNodeIds.has(src) && affectedNodeIds.has(tgt)) {
-      e.addClass('impact-path');
+      if (directIds.has(src) && directIds.has(tgt)) {
+        e.addClass('impact-path');
+      } else {
+        e.addClass('impact-path-indirect');
+      }
     } else {
       e.addClass('impact-unaffected');
     }
