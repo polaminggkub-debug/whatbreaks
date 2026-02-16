@@ -38,6 +38,23 @@ function getAllDescendantNodeIds(group: FileGroup, allGroups: FileGroup[]): stri
   return ids;
 }
 
+/** Derive dominant layer color from a group's member nodes */
+function getDominantColor(memberIds: string[], graph: Graph): string {
+  const colorCounts = new Map<string, number>();
+  for (const id of memberIds) {
+    const node = graph.nodes.find(n => n.id === id);
+    if (!node) continue;
+    const color = DEPTH_LAYER_COLORS[node.layerIndex ?? 0] ?? '#64748b';
+    colorCounts.set(color, (colorCounts.get(color) ?? 0) + 1);
+  }
+  let best = '#64748b';
+  let bestCount = 0;
+  for (const [color, count] of colorCounts) {
+    if (count > bestCount) { bestCount = count; best = color; }
+  }
+  return best;
+}
+
 function buildElements(graph: Graph) {
   const filteredNodes = graph.nodes.filter(n => {
     if (props.showTests === false && n.type === 'test') return false;
@@ -60,8 +77,9 @@ function buildElements(graph: Graph) {
       const allDescendantIds = getAllDescendantNodeIds(group, graph.groups);
       const visibleDescendants = allDescendantIds.filter(id => nodeIds.has(id));
       if (visibleDescendants.length < 2) continue;
+      const color = getDominantColor(allDescendantIds, graph);
       groupNodes.push({
-        data: { id: group.id, label: group.label, type: 'group', level: group.level ?? 0 },
+        data: { id: group.id, label: group.label, type: 'group', level: group.level ?? 0, color },
       });
     }
 
@@ -69,7 +87,8 @@ function buildElements(graph: Graph) {
       const visibleChildren = sub.nodeIds.filter(id => nodeIds.has(id));
       if (visibleChildren.length < 2) continue;
       // Only add if parent group was added
-      if (!groupNodes.find(g => g.data.id === sub.parentGroupId)) continue;
+      const parentNode = groupNodes.find(g => g.data.id === sub.parentGroupId);
+      if (!parentNode) continue;
       groupNodes.push({
         data: {
           id: sub.id,
@@ -77,6 +96,7 @@ function buildElements(graph: Graph) {
           type: 'group',
           level: sub.level,
           parent: sub.parentGroupId,
+          color: parentNode.data.color,
         },
       });
       for (const nid of visibleChildren) {
