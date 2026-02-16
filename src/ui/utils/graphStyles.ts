@@ -213,6 +213,7 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'edge',
       style: {
+        'events': 'no',
         'width': 1.2,
         'line-color': '#475569',
         'target-arrow-color': '#475569',
