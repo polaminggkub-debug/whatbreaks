@@ -595,11 +595,31 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
 
   const affectedNodes = instance.nodes().filter(n => affectedNodeIds.has(n.id()));
   if (affectedNodes.length > 0) {
-    instance.animate({
-      fit: { eles: affectedNodes, padding: 80 },
-      duration: 400,
-      easing: 'ease-out-cubic',
-    });
+    // Calculate what zoom would be needed to fit all affected nodes
+    const bb = affectedNodes.boundingBox();
+    const pad = 80;
+    const fitZoom = Math.min(
+      (instance.width() - 2 * pad) / bb.w,
+      (instance.height() - 2 * pad) / bb.h,
+    );
+
+    if (fitZoom >= 0.45) {
+      // Affected area is compact enough to fit at readable zoom
+      instance.animate({
+        fit: { eles: affectedNodes, padding: pad },
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+    } else {
+      // Too spread out — center on root node at readable zoom
+      const rootNode = instance.nodes('.impact-root');
+      instance.animate({
+        center: { eles: rootNode.length ? rootNode : affectedNodes },
+        zoom: 0.55,
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+    }
   }
 }
 
