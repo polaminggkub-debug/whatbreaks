@@ -6,6 +6,7 @@ import { registerFailingCommand } from './failing.js';
 import { registerRefactorCommand } from './refactor.js';
 import { registerImpactCommand } from './impact.js';
 import { registerReportCommands } from './report.js';
+import { registerGroupsCommand } from './groups.js';
 
 const program = new Command();
 
@@ -21,5 +22,6 @@ registerFailingCommand(program);
 registerRefactorCommand(program);
 registerImpactCommand(program);
 registerReportCommands(program);
+registerGroupsCommand(program);
 
 program.parse(process.argv);

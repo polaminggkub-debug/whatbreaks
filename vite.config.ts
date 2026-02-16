@@ -15,4 +15,8 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  test: {
+    root: '.',
+    include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+  },
 });

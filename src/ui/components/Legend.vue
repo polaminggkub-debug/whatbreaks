@@ -51,6 +51,15 @@ function toggleTestLevel(level: string) {
         <span class="legend-label">{{ item.label }}</span>
       </div>
     </div>
+    <div class="legend-separator"></div>
+    <div class="legend-group">
+      <span class="legend-title">Groups:</span>
+      <div class="legend-item">
+        <span class="legend-dot" style="border: 1px dashed #475569; background: transparent;"></span>
+        <span class="legend-label">File group</span>
+      </div>
+      <span class="legend-hint">dbl-click: expand</span>
+    </div>
   </div>
 </template>
 
@@ -121,5 +130,11 @@ function toggleTestLevel(level: string) {
   width: 1px;
   height: 18px;
   background: #334155;
+}
+
+.legend-hint {
+  font-size: 10px;
+  color: #64748b;
+  font-style: italic;
 }
 </style>

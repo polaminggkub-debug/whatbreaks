@@ -24,9 +24,17 @@ export interface GraphEdge {
   type: EdgeType;
 }
 
+export interface FileGroup {
+  id: string;
+  label: string;
+  nodeIds: string[];
+  centralNodeId: string;
+}
+
 export interface Graph {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  groups?: FileGroup[];
 }
 
 export interface ImpactNode {

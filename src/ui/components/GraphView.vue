@@ -5,6 +5,7 @@ import cyDagre from 'cytoscape-dagre';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph';
 import { getFileIcon } from '../utils/fileIcons';
 import { DEPTH_LAYER_COLORS } from '../utils/constants';
+import { getStylesheet } from '../utils/graphStyles';
 
 cytoscape.use(cyDagre);
 
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 const containerRef = ref<HTMLDivElement | null>(null);
 const cy = shallowRef<cytoscape.Core | null>(null);
 let edgeAnimationId: number | null = null;
+const expandedGroups = ref(new Set<string>());
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -37,22 +39,59 @@ function buildElements(graph: Graph) {
 
   const nodeIds = new Set(filteredNodes.map(n => n.id));
 
-  const nodes = filteredNodes.map(n => ({
-    data: {
-      id: n.id,
-      label: n.label,
-      layer: n.layer,
-      type: n.type,
-      functions: n.functions,
-      color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
-      testLevel: n.testLevel ?? 'unit',
-      icon: getFileIcon(n.id, n.type, n.testLevel),
-      nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
-      layerIndex: n.layerIndex ?? 0,
-      fanIn: n.fanIn ?? 0,
-      depth: n.depth ?? 0,
-    },
-  }));
+  // Create group (compound parent) nodes if groups exist
+  const groupNodes: cytoscape.ElementDefinition[] = [];
+  const nodeParentMap = new Map<string, string>();
+
+  if (graph.groups?.length) {
+    for (const group of graph.groups) {
+      const visibleChildren = group.nodeIds.filter(id => nodeIds.has(id));
+      if (visibleChildren.length < 2) continue;
+      groupNodes.push({
+        data: { id: group.id, label: group.label, type: 'group' },
+      });
+      for (const nid of visibleChildren) {
+        nodeParentMap.set(nid, group.id);
+      }
+    }
+  }
+
+  // Handle collapsed groups
+  for (const group of graph.groups ?? []) {
+    if (!expandedGroups.value.has(group.id)) {
+      const visibleChildren = group.nodeIds.filter(id => nodeIds.has(id));
+      for (const nid of visibleChildren) {
+        nodeIds.delete(nid);
+        nodeParentMap.delete(nid);
+      }
+      const groupNode = groupNodes.find(gn => gn.data.id === group.id);
+      if (groupNode) {
+        groupNode.data.label = `${group.label} (${visibleChildren.length})`;
+        groupNode.data.collapsedCount = visibleChildren.length;
+        groupNode.data.collapsedNodeIds = visibleChildren;
+      }
+    }
+  }
+
+  const nodes = filteredNodes
+    .filter(n => nodeIds.has(n.id))
+    .map(n => ({
+      data: {
+        id: n.id,
+        label: n.label,
+        layer: n.layer,
+        type: n.type,
+        functions: n.functions,
+        color: DEPTH_LAYER_COLORS[n.layerIndex ?? 0] ?? '#64748b',
+        testLevel: n.testLevel ?? 'unit',
+        icon: getFileIcon(n.id, n.type, n.testLevel),
+        nodeSize: props.sizeMode === 'uniform' ? 36 : (n.size ?? 36),
+        layerIndex: n.layerIndex ?? 0,
+        fanIn: n.fanIn ?? 0,
+        depth: n.depth ?? 0,
+        parent: nodeParentMap.get(n.id) ?? undefined,
+      },
+    }));
 
   const edges = graph.edges
     .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
@@ -65,202 +104,33 @@ function buildElements(graph: Graph) {
       },
     }));
 
-  return [...nodes, ...edges];
-}
+  // Aggregate edges for collapsed groups
+  const collapsedGroupNodeMap = new Map<string, string>();
+  for (const group of graph.groups ?? []) {
+    if (!expandedGroups.value.has(group.id)) {
+      for (const nid of group.nodeIds) {
+        collapsedGroupNodeMap.set(nid, group.id);
+      }
+    }
+  }
 
-function getStylesheet(): cytoscape.Stylesheet[] {
-  return [
-    {
-      selector: 'node',
-      style: {
-        'background-color': 'data(color)',
-        'background-image': 'data(icon)',
-        'background-fit': 'contain',
-        'background-clip': 'none',
-        'background-width': '70%',
-        'background-height': '70%',
-        'background-opacity': 0.15,
-        'label': 'data(label)',
-        'color': '#e2e8f0',
-        'font-size': '11px',
-        'text-valign': 'bottom',
-        'text-halign': 'center',
-        'text-margin-y': 6,
-        'text-background-color': '#0f172a',
-        'text-background-opacity': 0.75,
-        'text-background-padding': '2px',
-        'width': 'data(nodeSize)',
-        'height': 36,
-        'shape': 'roundrectangle',
-        'border-width': 2,
-        'border-color': 'data(color)',
-        'border-opacity': 0.8,
-        'text-wrap': 'ellipsis',
-        'text-max-width': '80px',
-        'overlay-padding': 4,
-        'transition-property': 'background-color, border-color, opacity, border-width',
-        'transition-duration': 250,
-      } as unknown as cytoscape.Css.Node,
-    },
-    // Glow effect for high fan-in nodes (hub files)
-    {
-      selector: 'node[fanIn >= 4]',
-      style: {
-        'border-width': 3,
-        'border-opacity': 1,
-        'background-opacity': 0.25,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node[fanIn >= 6]',
-      style: {
-        'border-width': 4,
-        'border-opacity': 1,
-        'background-opacity': 0.35,
-        'font-weight': 700,
-      } as unknown as cytoscape.Css.Node,
-    },
-    // Test nodes use structural layer color (border) — test level is encoded by icon shape
-    {
-      selector: 'node:active',
-      style: {
-        'overlay-color': '#6366f1',
-        'overlay-opacity': 0.15,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.hover',
-      style: {
-        'background-color': '#334155',
-        'border-width': 3,
-        'z-index': 999,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.selected-node',
-      style: {
-        'background-color': '#334155',
-        'border-width': 3,
-        'border-color': '#ffffff',
-        'z-index': 999,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.selected-neighbor',
-      style: {
-        'background-color': '#334155',
-        'border-width': 3,
-        'z-index': 998,
-      } as unknown as cytoscape.Css.Node,
-    },
-    // Impact styles — overlay/glow channel (preserves structural border color)
-    {
-      selector: 'node.impact-root',
-      style: {
-        'overlay-color': '#dc2626',
-        'overlay-opacity': 0.35,
-        'overlay-padding': 8,
-        'border-width': 4,
-        'width': 60,
-        'height': 42,
-        'font-size': '12px',
-        'font-weight': 700,
-        'color': '#fca5a5',
-        'z-index': 999,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.impact-direct',
-      style: {
-        'overlay-color': '#f87171',
-        'overlay-opacity': 0.25,
-        'overlay-padding': 6,
-        'border-width': 3,
-        'color': '#fecaca',
-        'z-index': 998,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.impact-indirect',
-      style: {
-        'overlay-color': '#fecaca',
-        'overlay-opacity': 0.15,
-        'overlay-padding': 4,
-        'border-width': 2,
-        'color': '#fecaca',
-        'z-index': 997,
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'node.impact-unaffected',
-      style: {
-        'opacity': 0.25,
-        'color': '#475569',
-        'font-size': '8px',
-      } as unknown as cytoscape.Css.Node,
-    },
-    {
-      selector: 'edge',
-      style: {
-        'width': 1.2,
-        'line-color': '#475569',
-        'target-arrow-color': '#475569',
-        'target-arrow-shape': 'triangle',
-        'arrow-scale': 0.8,
-        'curve-style': 'bezier',
-        'opacity': 0.4,
-        'transition-property': 'line-color, target-arrow-color, opacity, width',
-        'transition-duration': 250,
-      } as unknown as cytoscape.Css.Edge,
-    },
-    {
-      selector: 'edge.hover-connected',
-      style: {
-        'line-color': '#94a3b8',
-        'target-arrow-color': '#94a3b8',
-        'opacity': 0.9,
-        'width': 2,
-        'z-index': 999,
-      } as unknown as cytoscape.Css.Edge,
-    },
-    {
-      selector: 'edge.selected-connected',
-      style: {
-        'line-color': '#94a3b8',
-        'target-arrow-color': '#94a3b8',
-        'opacity': 0.9,
-        'width': 2,
-        'z-index': 998,
-      } as unknown as cytoscape.Css.Edge,
-    },
-    {
-      selector: 'edge.impact-path',
-      style: {
-        'line-color': '#dc2626',
-        'target-arrow-color': '#dc2626',
-        'opacity': 1,
-        'width': 2.5,
-        'z-index': 998,
-        'line-style': 'dashed',
-        'line-dash-pattern': [8, 4],
-        'line-dash-offset': 0,
-      } as unknown as cytoscape.Css.Edge,
-    },
-    {
-      selector: 'edge.impact-unaffected',
-      style: {
-        'opacity': 0.1,
-        'width': 0.5,
-      } as unknown as cytoscape.Css.Edge,
-    },
-    {
-      selector: 'edge[edgeType="test-covers"]',
-      style: {
-        'line-style': 'dashed',
-        'line-dash-pattern': [6, 3],
-      } as unknown as cytoscape.Css.Edge,
-    },
-  ];
+  const aggregateEdgeSet = new Set<string>();
+  const aggregateEdges: cytoscape.ElementDefinition[] = [];
+  for (const edge of graph.edges) {
+    const srcGroup = collapsedGroupNodeMap.get(edge.source);
+    const tgtGroup = collapsedGroupNodeMap.get(edge.target);
+    if (srcGroup && tgtGroup && srcGroup !== tgtGroup) {
+      const key = `${srcGroup}->${tgtGroup}`;
+      if (!aggregateEdgeSet.has(key)) {
+        aggregateEdgeSet.add(key);
+        aggregateEdges.push({
+          data: { id: `agg-${key}`, source: srcGroup, target: tgtGroup, edgeType: 'aggregate' },
+        });
+      }
+    }
+  }
+
+  return [...groupNodes, ...nodes, ...edges, ...aggregateEdges];
 }
 
 function getLayoutConfig() {
@@ -317,6 +187,7 @@ function initCytoscape() {
   });
 
   instance.on('tap', 'node', (evt) => {
+    if (evt.target.data('type') === 'group') return; // handled by group tap
     const nodeId = evt.target.id();
     // Clear previous selection
     instance.nodes().removeClass('selected-node selected-neighbor');
@@ -328,10 +199,48 @@ function initCytoscape() {
     emit('nodeClick', nodeId);
   });
 
+  // Group focus mode: click a group to dim others
+  instance.on('tap', 'node[type="group"]', (evt) => {
+    const groupId = evt.target.id();
+    if (evt.target.hasClass('group-focused')) {
+      instance.nodes('[type="group"]').removeClass('group-focused group-dimmed');
+      instance.nodes().not('[type="group"]').removeClass('impact-unaffected');
+      instance.edges().removeClass('impact-unaffected');
+      return;
+    }
+    instance.nodes('[type="group"]').addClass('group-dimmed').removeClass('group-focused');
+    evt.target.removeClass('group-dimmed').addClass('group-focused');
+    const childNodeIds = new Set(
+      instance.nodes(`[parent="${groupId}"]`).map((n: any) => n.id())
+    );
+    instance.nodes().not('[type="group"]').forEach((n: any) => {
+      n.toggleClass('impact-unaffected', !childNodeIds.has(n.id()));
+    });
+    instance.edges().forEach((e: any) => {
+      const connected = childNodeIds.has(e.source().id()) || childNodeIds.has(e.target().id());
+      e.toggleClass('impact-unaffected', !connected);
+    });
+    const groupEles = evt.target.descendants().add(evt.target);
+    instance.animate({ fit: { eles: groupEles, padding: 60 }, duration: 400, easing: 'ease-out-cubic' });
+  });
+
+  // Double-click group to expand/collapse
+  instance.on('dblclick', 'node[type="group"]', (evt) => {
+    const groupId = evt.target.id();
+    if (expandedGroups.value.has(groupId)) {
+      expandedGroups.value.delete(groupId);
+    } else {
+      expandedGroups.value.add(groupId);
+    }
+    initCytoscape();
+  });
+
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
-      instance.nodes().removeClass('selected-node selected-neighbor');
+      instance.nodes().removeClass('selected-node selected-neighbor group-focused group-dimmed');
       instance.edges().removeClass('selected-connected');
+      instance.nodes().not('[type="group"]').removeClass('impact-unaffected');
+      instance.edges().removeClass('impact-unaffected');
     }
   });
 

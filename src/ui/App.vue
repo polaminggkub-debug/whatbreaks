@@ -226,6 +226,9 @@ function onNavigateToNode(nodeId: string) {
       <Legend />
       <div class="stats" v-if="graph">
         {{ graph.nodes.length }} files &middot; {{ graph.edges.length }} connections
+        <template v-if="graph.groups?.length">
+          &middot; {{ graph.groups.length }} groups
+        </template>
       </div>
     </footer>
   </div>

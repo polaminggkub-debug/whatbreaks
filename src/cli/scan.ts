@@ -50,6 +50,10 @@ export function registerScanCommand(program: Command): void {
         console.log(`    ${chalk.bold(String(testFiles))} test files`);
         console.log(`    ${chalk.bold(String(importEdges))} import edges`);
         console.log(`    ${chalk.bold(String(testMappings))} test mappings`);
+        const groupCount = graph.groups?.length ?? 0;
+        if (groupCount > 0) {
+          console.log(`    ${chalk.bold(String(groupCount))} file groups`);
+        }
         console.log(
           chalk.dim(`\n  Graph saved to ${opts.output}\n`)
         );

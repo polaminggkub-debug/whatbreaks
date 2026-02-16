@@ -11,6 +11,7 @@ import type { ParsedFile } from './importParser.js';
 import { isTestFile, mapTestCoverage, classifyTestLevel } from './testMapper.js';
 import { classifyLayer } from './layerClassifier.js';
 import { computeVisualMetrics } from '../engine/metrics.js';
+import { computeFileGroups } from '../engine/grouping.js';
 import { getParserForFile } from './parsers/index.js';
 
 export { scanFiles } from './fileScanner.js';
@@ -126,6 +127,9 @@ export async function scanRepository(
   const graph: Graph = { nodes, edges };
 
   computeVisualMetrics(graph);
+
+  // Step 7: Compute file groups (hybrid directory + dependency clustering)
+  graph.groups = computeFileGroups(graph);
 
   return graph;
 }
