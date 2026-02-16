@@ -282,16 +282,66 @@ function initCytoscape() {
     boxSelectionEnabled: false,
   });
 
-  // Click node — select + show details
+  // Auto-frame: ensure minimum readable zoom after layout
+  instance.one('layoutstop', () => {
+    const zoom = instance.zoom();
+    if (zoom < 0.35) {
+      instance.animate({
+        zoom: 0.35,
+        center: { eles: instance.elements() },
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+    }
+  });
+
+  // Click node — focus mode: dim unrelated, zoom to neighborhood
   instance.on('tap', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
-    const nodeId = evt.target.id();
-    instance.nodes().removeClass('selected-node selected-neighbor');
-    instance.edges().removeClass('selected-connected');
-    evt.target.addClass('selected-node');
-    evt.target.connectedEdges().addClass('selected-connected');
-    evt.target.neighborhood('node').addClass('selected-neighbor');
-    emit('nodeClick', nodeId);
+    const node = evt.target;
+    clearFocusMode(instance);
+    instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
+
+    node.addClass('selected-node');
+    node.connectedEdges().addClass('selected-connected');
+    const neighbors = node.neighborhood('node').not('[type="group"]');
+    neighbors.addClass('selected-neighbor');
+
+    // Dim everything outside the focus set
+    instance.nodes().not(node).not(neighbors).not('[type="group"]').addClass('selected-dimmed');
+    instance.edges().not(node.connectedEdges()).addClass('selected-dimmed');
+
+    // Keep parent groups of visible nodes visible
+    node.union(neighbors).forEach((n: any) => {
+      const parent = n.parent();
+      if (parent.length) parent.removeClass('selected-dimmed');
+    });
+
+    // Adaptive zoom: fit neighborhood if readable, otherwise center on node
+    const hood = node.closedNeighborhood();
+    const bb = hood.boundingBox();
+    const pad = 100;
+    const fitZoom = Math.min(
+      (instance.width() - 2 * pad) / bb.w,
+      (instance.height() - 2 * pad) / bb.h,
+    );
+
+    if (fitZoom >= 0.5) {
+      instance.animate({
+        fit: { eles: hood, padding: pad },
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+    } else {
+      instance.animate({
+        center: { eles: node },
+        zoom: 0.6,
+        duration: 400,
+        easing: 'ease-out-cubic',
+      });
+    }
+
+    emit('nodeClick', node.id());
   });
 
   // Click group — focus mode: dim everything else, zoom in
@@ -309,8 +359,9 @@ function initCytoscape() {
       return;
     }
 
-    // Focus this group
+    // Focus this group — also clear node selection
     clearFocusMode(instance);
+    instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
     target.addClass('group-focused');
 
     // Children of focused group (recursive — includes nested subgroups)
@@ -345,12 +396,19 @@ function initCytoscape() {
     });
   });
 
-  // Click background — clear all
+  // Click background — clear all focus modes, zoom back to full graph
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
-      instance.nodes().removeClass('selected-node selected-neighbor');
-      instance.edges().removeClass('selected-connected');
+      const hadFocus = instance.nodes('.selected-node, .group-focused').length > 0;
+      instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
       clearFocusMode(instance);
+      if (hadFocus) {
+        instance.animate({
+          fit: { eles: instance.elements(), padding: 40 },
+          duration: 400,
+          easing: 'ease-out-cubic',
+        });
+      }
     }
   });
 
@@ -359,6 +417,7 @@ function initCytoscape() {
     const node = evt.target;
     if (node.data('type') === 'group') return;
     if (instance.nodes('.impact-root').length > 0) return;
+    if (instance.nodes('.selected-node').length > 0) return;
 
     // Tier 3: dim everything
     instance.nodes().addClass('hover-dimmed');

@@ -58,6 +58,12 @@ npm run dev:ui       # Dev server for UI
 npm test             # Run tests
 ```
 
+## Code Limits
+
+- **Soft limit:** ~300 LOC per file
+- **Hard limit:** 500 LOC max per file
+- If a file exceeds 300 LOC, consider splitting it
+
 ## Code Conventions
 
 - ESM modules (`"type": "module"` in package.json)

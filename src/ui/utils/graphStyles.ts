@@ -185,6 +185,19 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
+    // Click-to-focus — dimmed nodes/edges outside the focus set
+    {
+      selector: 'node.selected-dimmed',
+      style: {
+        'opacity': 0.12,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.selected-dimmed',
+      style: {
+        'opacity': 0.06,
+      } as unknown as cytoscape.Css.Edge,
+    },
     // Impact styles — overlay/glow channel (preserves structural border color)
     {
       selector: 'node.impact-root',
