@@ -18,5 +18,6 @@ export default defineConfig({
   test: {
     root: '.',
     include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    exclude: ['tests/fixtures/**', 'node_modules/**'],
   },
 });

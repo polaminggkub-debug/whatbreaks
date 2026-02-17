@@ -7,12 +7,16 @@ export interface LanguageParser {
 
 // Import all parsers
 import { typescriptParser } from './typescript.js';
+import { pythonParser } from './python.js';
+import { goParser } from './go.js';
 import { rustParser } from './rust.js';
 import { phpParser } from './php.js';
 import { rubyParser } from './ruby.js';
 
 const parsers: LanguageParser[] = [
   typescriptParser,
+  pythonParser,
+  goParser,
   rustParser,
   phpParser,
   rubyParser,

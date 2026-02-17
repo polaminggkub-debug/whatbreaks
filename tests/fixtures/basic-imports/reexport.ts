@@ -1,0 +1,1 @@
+export { someFn } from './b';
