@@ -145,6 +145,7 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
       selector: 'node.hover-focus',
       style: {
         'opacity': 1,
+        'background-opacity': 0.4,
         'border-width': 3,
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
@@ -153,6 +154,7 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
       selector: 'node.hover-neighbor',
       style: {
         'opacity': 0.95,
+        'background-opacity': 0.3,
         'z-index': 998,
       } as unknown as cytoscape.Css.Node,
     },
@@ -263,6 +265,27 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'opacity': 0.12,
         'color': '#475569',
         'font-size': '8px',
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Impact mode hover — additive highlight, doesn't override impact colors
+    {
+      selector: 'node.impact-hover',
+      style: {
+        'overlay-color': '#ffffff',
+        'overlay-opacity': 0.3,
+        'overlay-padding': 10,
+        'border-width': 4,
+        'border-color': '#ffffff',
+        'border-opacity': 1,
+        'z-index': 1000,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node[type="group"].impact-group-visible',
+      style: {
+        'opacity': 0.4,
+        'border-opacity': 0.5,
+        'background-opacity': 0.06,
       } as unknown as cytoscape.Css.Node,
     },
     {

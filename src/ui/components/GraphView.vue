@@ -440,7 +440,11 @@ function initCytoscape() {
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target;
     if (node.data('type') === 'group') return;
-    if (instance.nodes('.impact-root').length > 0) return;
+    // Impact mode — use additive hover (don't override impact colors)
+    if (instance.nodes('.impact-root').length > 0) {
+      node.addClass('impact-hover');
+      return;
+    }
     if (instance.nodes('.selected-node').length > 0) return;
 
     // Tier 3: dim everything
@@ -464,7 +468,7 @@ function initCytoscape() {
 
   instance.on('mouseout', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
-    instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected');
+    instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected impact-hover');
   });
 
   cy.value = instance;
@@ -506,7 +510,7 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   stopEdgeAnimation();
   clearFocusMode(instance);
 
-  instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected selected-neighbor');
+  instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected impact-group-visible selected-neighbor');
   instance.edges().removeClass('impact-path impact-path-indirect impact-unaffected selected-connected');
 
   if (!result) return;
@@ -578,6 +582,16 @@ function applyHighlight(result: FailingResult | RefactorResult | null) {
   instance.nodes().forEach(n => {
     if (!affectedNodeIds.has(n.id())) {
       n.addClass('impact-unaffected');
+    }
+  });
+
+  // Keep groups visible if they contain any affected nodes
+  instance.nodes('[type="group"]').forEach((g: any) => {
+    const descendants = g.descendants().not('[type="group"]');
+    const hasAffected = descendants.some((child: any) => affectedNodeIds.has(child.id()));
+    if (hasAffected) {
+      g.removeClass('impact-unaffected');
+      g.addClass('impact-group-visible');
     }
   });
 
