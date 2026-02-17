@@ -104,6 +104,25 @@ export function extractFromSourceFile(
     }
   }
 
+  // --- Extract re-exports (export { X } from './Y' and export * from './Z') ---
+  for (const exportDecl of sourceFile.getExportDeclarations()) {
+    const moduleSpecifier = exportDecl.getModuleSpecifierValue();
+    if (moduleSpecifier) {
+      // This is a re-export — it creates an import dependency
+      const resolved = resolveImportPath(moduleSpecifier, currentFileDir, projectRoot);
+      if (resolved) {
+        imports.push(resolved.split(path.sep).join('/'));
+      }
+      // Capture re-exported names as exports of this file
+      for (const namedExport of exportDecl.getNamedExports()) {
+        const alias = namedExport.getAliasNode()?.getText() ?? namedExport.getName();
+        exports.push(alias);
+      }
+      // Handle star re-exports: export * from './foo'
+      // These don't have named exports but still create the dependency edge (handled above)
+    }
+  }
+
   // --- Extract exports ---
 
   // Exported functions

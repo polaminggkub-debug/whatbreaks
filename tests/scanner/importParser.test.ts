@@ -36,19 +36,16 @@ describe('importParser', () => {
       expect(result.filePath).toBe('missing-import.ts');
     });
 
-    it('parses re-export file without crashing (re-exports are ExportDeclarations)', () => {
+    it('creates import edge for re-export (export { X } from "./Y")', () => {
       const result = parseImports('reexport.ts', projectRoot);
 
       // reexport.ts has: export { someFn } from './b'
-      // This is an ExportDeclaration, not an ImportDeclaration.
-      // The scanner's extractFromSourceFile only reads getImportDeclarations()
-      // and captures exports from functions/classes/variables/interfaces/types/enums.
-      // Re-exports are neither, so:
-      // - imports array is empty (no ImportDeclaration)
-      // - exports array is empty (no function/class/variable declaration)
+      // Re-exports should create an import edge to the source module
+      // and capture the re-exported name as an export.
       expect(result.filePath).toBe('reexport.ts');
-      expect(result.imports).toHaveLength(0);
-      expect(result.exports).toHaveLength(0);
+      expect(result.imports).toContain('b.ts');
+      expect(result.imports).toHaveLength(1);
+      expect(result.exports).toContain('someFn');
     });
 
     it('skips node_modules import (lodash)', () => {
@@ -91,16 +88,15 @@ describe('importParser', () => {
       expect(result.imports).toHaveLength(1);
     });
 
-    it('barrel re-export does not create import edge (ExportDeclaration not ImportDeclaration)', () => {
+    it('barrel re-export creates import edge and captures exported name', () => {
       const result = parseImports('utils/index.ts', projectRoot);
 
       // index.ts has: export { helper } from './helper'
-      // This is an ExportDeclaration, not an ImportDeclaration.
-      // The scanner only reads getImportDeclarations(), so no import edge is created.
-      // The re-exported name 'helper' is also not captured as an export
-      // because it's not a function/class/variable declaration in this file.
-      expect(result.imports).toHaveLength(0);
-      expect(result.exports).toHaveLength(0);
+      // Re-exports should create an import edge to the source module
+      // and capture the re-exported name as an export.
+      expect(result.imports).toContain('utils/helper.ts');
+      expect(result.imports).toHaveLength(1);
+      expect(result.exports).toContain('helper');
     });
   });
 
@@ -115,6 +111,52 @@ describe('importParser', () => {
       expect(resultB.imports).toContain('a.ts');
       expect(resultA.exports).toContain('a');
       expect(resultB.exports).toContain('b');
+    });
+  });
+
+  describe('re-export patterns', () => {
+    const projectRoot = path.join(FIXTURES, 'reexport-patterns');
+
+    it('named re-export creates import edge and captures export name', () => {
+      const result = parseImports('barrel.ts', projectRoot);
+      expect(result.imports).toContain('helper.ts');
+      expect(result.imports).toContain('formatter.ts');
+      expect(result.imports).toHaveLength(2);
+      expect(result.exports).toContain('helper');
+      expect(result.exports).toContain('formatter');
+    });
+
+    it('star re-export (export * from) creates import edge', () => {
+      const result = parseImports('star-reexport.ts', projectRoot);
+      expect(result.imports).toContain('helper.ts');
+      expect(result.imports).toHaveLength(1);
+    });
+
+    it('aliased re-export captures the alias name', () => {
+      const result = parseImports('alias-reexport.ts', projectRoot);
+      expect(result.imports).toContain('helper.ts');
+      expect(result.imports).toHaveLength(1);
+      expect(result.exports).toContain('myHelper');
+    });
+
+    it('type re-export creates import edge', () => {
+      const result = parseImports('type-reexport.ts', projectRoot);
+      expect(result.imports).toContain('helper.ts');
+      expect(result.imports).toHaveLength(1);
+      expect(result.exports).toContain('SomeType');
+    });
+
+    it('chained barrel re-export resolves to intermediate barrel', () => {
+      const result = parseImports('chained-barrel.ts', projectRoot);
+      expect(result.imports).toContain('barrel.ts');
+      expect(result.imports).toHaveLength(1);
+      expect(result.exports).toContain('helper');
+    });
+
+    it('consumer imports from barrel file normally', () => {
+      const result = parseImports('consumer.ts', projectRoot);
+      expect(result.imports).toContain('barrel.ts');
+      expect(result.imports).toHaveLength(1);
     });
   });
 });
