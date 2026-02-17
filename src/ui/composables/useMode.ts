@@ -26,3 +26,5 @@ export function useMode() {
     clear,
   };
 }
+
+export type UseModeReturn = ReturnType<typeof useMode>;

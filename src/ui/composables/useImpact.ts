@@ -122,3 +122,5 @@ export function useImpact(graph: Ref<Graph | null>) {
     clearHighlight,
   };
 }
+
+export type UseImpactReturn = ReturnType<typeof useImpact>;

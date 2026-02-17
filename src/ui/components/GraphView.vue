@@ -188,7 +188,7 @@ watch(() => props.graph, () => initCytoscape());
 watch(() => props.highlightResult, (result) => {
   if (!cy.value) return;
   applyHighlightUtil(cy.value, result ?? null, startEdgeAnimation, stopEdgeAnimation);
-}, { deep: true });
+});
 
 watch(() => [props.layoutMode, props.showTests, props.showFoundation, props.sizeMode], () => {
   initCytoscape();

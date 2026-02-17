@@ -17,7 +17,8 @@
     "dev:ui": "vite",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "codebase",
@@ -33,6 +34,14 @@
   ],
   "author": "WhatBreaks",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/polaminggkub-debug/whatbreaks.git"
+  },
+  "homepage": "https://github.com/polaminggkub-debug/whatbreaks#readme",
+  "bugs": {
+    "url": "https://github.com/polaminggkub-debug/whatbreaks/issues"
+  },
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
