@@ -2,6 +2,23 @@ import { Project, SyntaxKind, type SourceFile } from 'ts-morph';
 import path from 'node:path';
 import fs from 'node:fs';
 
+/**
+ * Shared ts-morph Project instance, lazily created on first use.
+ * Reused across all parseImports() calls to avoid expensive per-file
+ * Project construction (~500 files = ~500 instances without this).
+ */
+let sharedProject: Project | null = null;
+
+function getSharedProject(): Project {
+  if (!sharedProject) {
+    sharedProject = new Project({
+      compilerOptions: { allowJs: true },
+      skipAddingFilesFromTsConfig: true,
+    });
+  }
+  return sharedProject;
+}
+
 export interface ParsedFile {
   filePath: string;
   imports: string[];
@@ -148,11 +165,7 @@ export function parseImports(
   const absolutePath = path.resolve(projectRoot, filePath);
   const currentFileDir = path.dirname(absolutePath);
 
-  const project = new Project({
-    compilerOptions: { allowJs: true },
-    skipAddingFilesFromTsConfig: true,
-  });
-
+  const project = getSharedProject();
   const sourceFile = project.addSourceFileAtPath(absolutePath);
 
   const { imports, exports } = extractFromSourceFile(
@@ -160,6 +173,9 @@ export function parseImports(
     currentFileDir,
     projectRoot,
   );
+
+  // Remove from shared project to avoid memory growth
+  project.removeSourceFile(sourceFile);
 
   return {
     filePath: filePath.split(path.sep).join('/'),

@@ -1,9 +1,6 @@
 import { GraphIndex } from './graph.js';
-
-export interface ImpactResult {
-  nodes: Array<{ nodeId: string; depth: number }>;
-  affectedTests: string[];
-}
+import type { ImpactResult } from '../types/graph.js';
+export type { ImpactResult };
 
 /**
  * Forward impact: from a changed file, find all dependents.

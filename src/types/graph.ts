@@ -1,5 +1,5 @@
 export type NodeLayer = 'ui' | 'feature' | 'shared' | 'entity' | 'page' | 'test' | 'config';
-export type NodeType = 'source' | 'test' | 'type-only';
+export type NodeType = 'source' | 'test';
 export type EdgeType = 'import' | 'test-covers';
 export type TestLevel = 'unit' | 'integration' | 'e2e';
 export type AnalysisMode = 'failing' | 'refactor';
@@ -94,6 +94,11 @@ export interface HealthReport {
   hotspots: HotspotFile[];
   fragileChains: FragileChain[];
   circularDeps: CircularDep[];
+}
+
+export interface ImpactResult {
+  nodes: Array<{ nodeId: string; depth: number }>;
+  affectedTests: string[];
 }
 
 export interface ScanConfig {

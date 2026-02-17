@@ -5,7 +5,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { GraphIndex, loadGraph } from '../engine/graph.js';
 import { computeForwardImpact, computeBackwardImpact } from '../engine/impact.js';
-import type { ImpactResult } from '../engine/impact.js';
+import type { ImpactResult } from '../types/graph.js';
 
 function printImpactDirection(
   label: string,
