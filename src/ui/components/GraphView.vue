@@ -459,10 +459,13 @@ function initCytoscape() {
     neighbors.removeClass('hover-dimmed').addClass('hover-neighbor');
     node.connectedEdges().removeClass('hover-dimmed').addClass('hover-connected');
 
-    // Keep parent groups of visible nodes visible
+    // Keep all ancestor groups of visible nodes visible
     node.union(neighbors).forEach((n: any) => {
-      const parent = n.parent();
-      if (parent.length) parent.removeClass('hover-dimmed');
+      let parent = n.parent();
+      while (parent.length) {
+        parent.removeClass('hover-dimmed');
+        parent = parent.parent();
+      }
     });
   });
 

@@ -214,10 +214,9 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'border-width': 4,
         'border-color': '#ffffff',
         'border-opacity': 1,
-        'overlay-color': '#ffffff',
-        'overlay-opacity': 0.2,
-        'overlay-padding': 8,
-        'background-opacity': 0.4,
+        'background-color': '#0f172a',
+        'background-opacity': 0.9,
+        'background-image-opacity': 0.15,
         'width': 64,
         'height': 44,
         'font-size': '13px',
@@ -283,9 +282,9 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
     {
       selector: 'node[type="group"].impact-group-visible',
       style: {
-        'opacity': 0.4,
         'border-opacity': 0.5,
-        'background-opacity': 0.06,
+        'background-opacity': 0,
+        'color': '#64748b',
       } as unknown as cytoscape.Css.Node,
     },
     {
