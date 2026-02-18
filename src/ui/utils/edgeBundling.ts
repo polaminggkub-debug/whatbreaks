@@ -31,50 +31,6 @@ let nodeBundles = new Map<string, Set<string>>();
 let levelUnbundled = new Set<string>();
 
 /**
- * Cast a ray from `origin` toward `target`, find where it exits `bb`,
- * then add `margin` px in the same direction.
- * Fallback: if origin is outside bb or degenerate, returns origin + margin toward target.
- */
-function groupBoundaryExit(
-  origin: { x: number; y: number },
-  target: { x: number; y: number },
-  bb: { x1: number; y1: number; x2: number; y2: number },
-  margin: number
-): { x: number; y: number } {
-  const dx = target.x - origin.x;
-  const dy = target.y - origin.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1) return origin;
-
-  const nx = dx / len;
-  const ny = dy / len;
-
-  // Ray-AABB: find smallest positive t where ray exits the box
-  let tMin = Infinity;
-  if (nx !== 0) {
-    const t1 = (bb.x1 - origin.x) / nx;
-    const t2 = (bb.x2 - origin.x) / nx;
-    if (t1 > 0.001) tMin = Math.min(tMin, t1);
-    if (t2 > 0.001) tMin = Math.min(tMin, t2);
-  }
-  if (ny !== 0) {
-    const t1 = (bb.y1 - origin.y) / ny;
-    const t2 = (bb.y2 - origin.y) / ny;
-    if (t1 > 0.001) tMin = Math.min(tMin, t1);
-    if (t2 > 0.001) tMin = Math.min(tMin, t2);
-  }
-
-  if (!isFinite(tMin)) {
-    return { x: origin.x + margin * nx, y: origin.y + margin * ny };
-  }
-
-  return {
-    x: origin.x + tMin * nx + margin * nx,
-    y: origin.y + tMin * ny + margin * ny,
-  };
-}
-
-/**
  * Computes centroid position of a collection of nodes.
  */
 function centroid(nodes: cytoscape.NodeSingular[]): { x: number; y: number } {
@@ -154,35 +110,17 @@ export function applyEdgeBundling(instance: cytoscape.Core): void {
     const srcCentroid = centroid(srcNodes);
     const tgtCentroid = centroid(tgtNodes);
 
-    // Hybrid: centroid sets direction, group boundary sets position.
-    // Convergence sits just outside the group edge, in the direction of the opposite group.
-    const MARGIN = 15;
-    const [srcGroupId, tgtGroupId] = key.split('::');
-    const srcGroup = instance.getElementById(srcGroupId);
-    const tgtGroup = instance.getElementById(tgtGroupId);
+    // Cluster centroid convergence: convergence at file centroids with small offset.
+    // Principle: edges converge where files are, not where group boundaries are.
+    const NUDGE = 10;
+    const dx = tgtCentroid.x - srcCentroid.x;
+    const dy = tgtCentroid.y - srcCentroid.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
 
-    let srcConvPos: { x: number; y: number };
-    let tgtConvPos: { x: number; y: number };
-
-    if (srcGroup.length && srcGroup.isNode()) {
-      srcConvPos = groupBoundaryExit(srcCentroid, tgtCentroid, srcGroup.boundingBox(), MARGIN);
-    } else {
-      const d = Math.sqrt((tgtCentroid.x - srcCentroid.x) ** 2 + (tgtCentroid.y - srcCentroid.y) ** 2) || 1;
-      srcConvPos = {
-        x: srcCentroid.x + MARGIN * (tgtCentroid.x - srcCentroid.x) / d,
-        y: srcCentroid.y + MARGIN * (tgtCentroid.y - srcCentroid.y) / d,
-      };
-    }
-
-    if (tgtGroup.length && tgtGroup.isNode()) {
-      tgtConvPos = groupBoundaryExit(tgtCentroid, srcCentroid, tgtGroup.boundingBox(), MARGIN);
-    } else {
-      const d = Math.sqrt((srcCentroid.x - tgtCentroid.x) ** 2 + (srcCentroid.y - tgtCentroid.y) ** 2) || 1;
-      tgtConvPos = {
-        x: tgtCentroid.x + MARGIN * (srcCentroid.x - tgtCentroid.x) / d,
-        y: tgtCentroid.y + MARGIN * (srcCentroid.y - tgtCentroid.y) / d,
-      };
-    }
+    const srcConvPos = { x: srcCentroid.x + nx * NUDGE, y: srcCentroid.y + ny * NUDGE };
+    const tgtConvPos = { x: tgtCentroid.x - nx * NUDGE, y: tgtCentroid.y - ny * NUDGE };
 
     // IDs for bundle elements
     const srcConvId = `conv-src::${key}`;
