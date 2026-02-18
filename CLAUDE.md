@@ -105,6 +105,37 @@ The hub file `demo/src/core/damage/damageCalculator.ts` cascades to 170+ tests w
 - **PHP** — regex parser: PSR-4 via `composer.json`, Laravel convention (`.php`)
 - **Ruby** — regex parser: `require`, `require_relative` (`.rb`)
 
+## UI Architecture
+
+### File Map
+- `src/ui/components/GraphView.vue` — Main graph component, initializes Cytoscape, handles layout + highlight watchers
+- `src/ui/utils/buildCytoscapeElements.ts` — Converts Graph → Cytoscape elements (nodes, edges, groups)
+- `src/ui/utils/graphStyles.ts` — Full Cytoscape stylesheet (selectors for nodes, edges, hover, impact, bundling)
+- `src/ui/composables/useGraphInteractions.ts` — All event handlers: click, hover, group focus, context menu
+- `src/ui/utils/highlightUtils.ts` — Impact highlighting: classify nodes/edges, animate viewport
+- `src/ui/utils/edgeBundling.ts` — Hierarchical edge bundling: convergence nodes, branches, trunk
+
+### Data Flow
+`graph.json` → `buildElements()` → Cytoscape init → `layoutstop` → `applyEdgeBundling()` → interactions/highlighting
+
+### Edge Bundling System
+- Hierarchical bundling with TWO convergence nodes per bundle (src centroid + tgt centroid)
+- Structure: sourceNodes → srcConvergence ══→ tgtConvergence → targetNodes
+- Runs post-layout to avoid interfering with force-directed positioning
+- Groups cross-group edges by (effectiveSource, effectiveTarget) where effective = parent group or self
+- Buckets with 2+ edges → convergence nodes + branch edges + trunk edge; originals hidden (`bundle-hidden`)
+- Trunk width: `1.5 + 1.8 * Math.sqrt(count)`, opacity: `0.4 + 0.15 * Math.min(1, sqrt(count)/5)`
+- Convergence nodes are non-interactive (`virtual: true`, `selectable: false`, `grabbable: false`)
+- **3-Level abstraction:** L1 Overview (bundled), L2 Group Focus (`unbundleGroup`), L3 Investigation (`unbundleChain`/`unbundleImpact`)
+- Internal edges (same group) and single cross-group edges are NOT bundled
+
+### Impact Highlighting Lifecycle
+1. `applyHighlight()` clears previous state, classifies nodes (root/direct/indirect/unaffected)
+2. `classifyEdges()` marks edges as impact-path/impact-path-indirect/impact-unaffected
+3. `unbundleImpact()` shows original impact-chain edges, hides their bundle visuals
+4. Edge animation starts (dashed line offset)
+5. Viewport animates to affected nodes
+
 ## Layer Classification
 
 Files are classified by path convention:

@@ -299,6 +299,79 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'transition-duration': 150,
       } as unknown as cytoscape.Css.Edge,
     },
+    // Convergence nodes — invisible virtual junction points for bundling
+    {
+      selector: 'node[type="convergence"]',
+      style: {
+        'width': 1,
+        'height': 1,
+        'opacity': 0,
+        'events': 'no',
+        'label': '',
+        'z-index': 1,
+        'transition-property': 'opacity',
+        'transition-duration': 200,
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Source branch edges — thin lines from source nodes to srcConvergence
+    {
+      selector: 'edge[bundleType="src-branch"]',
+      style: {
+        'width': 1,
+        'opacity': 0.3,
+        'line-color': '#475569',
+        'target-arrow-shape': 'none',
+        'curve-style': 'bezier',
+        'z-index': 1,
+        'transition-property': 'opacity, width',
+        'transition-duration': 200,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Target branch edges — thin lines from tgtConvergence to target nodes
+    {
+      selector: 'edge[bundleType="tgt-branch"]',
+      style: {
+        'width': 1,
+        'opacity': 0.3,
+        'line-color': '#475569',
+        'target-arrow-color': '#475569',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.6,
+        'curve-style': 'bezier',
+        'z-index': 1,
+        'transition-property': 'opacity, width',
+        'transition-duration': 200,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Trunk edges — thick bundled segment with count label
+    {
+      selector: 'edge[bundleType="trunk"]',
+      style: {
+        'width': 'data(trunkWidth)',
+        'opacity': 'data(trunkOpacity)',
+        'line-color': '#64748b',
+        'target-arrow-color': '#64748b',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.8,
+        'label': 'data(label)',
+        'font-size': '10px',
+        'color': '#94a3b8',
+        'text-background-color': '#0f172a',
+        'text-background-opacity': 0.85,
+        'text-background-padding': '2px',
+        'text-rotation': 'autorotate',
+        'z-index': 1,
+        'transition-property': 'opacity, width',
+        'transition-duration': 200,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Hidden original edges (replaced by bundle visuals)
+    {
+      selector: 'edge.bundle-hidden',
+      style: {
+        'visibility': 'hidden',
+      } as unknown as cytoscape.Css.Edge,
+    },
     {
       selector: 'edge.hover-connected',
       style: {
@@ -402,6 +475,13 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
       style: {
         'line-style': 'dashed',
         'line-dash-pattern': [6, 3],
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Bundle visual elements hidden during unbundle (at end for specificity)
+    {
+      selector: '.bundle-visual-hidden',
+      style: {
+        'visibility': 'hidden',
       } as unknown as cytoscape.Css.Edge,
     },
   ];
