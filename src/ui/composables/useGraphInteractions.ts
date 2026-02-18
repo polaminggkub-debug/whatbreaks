@@ -1,21 +1,12 @@
 import type cytoscape from 'cytoscape';
-import { restoreOverview, unbundleGroup, unbundleChain, unbundleNode, rebundleNode } from '../utils/edgeBundling.js';
 
 /**
- * Clears all group focus mode classes and restores aggregation to Level 1 (overview).
- *
- * Abstraction levels:
- *   Level 1 (Overview)      — virtual edges visible, member edges hidden
- *   Level 2 (Group Focus)   — group click expands real edges for that group
- *   Level 3 (Investigation) — node click / impact shows file-to-file chains
- *
- * Every level transition goes through clearFocusMode → back to Level 1.
+ * Clears all group focus mode classes.
  */
 export function clearFocusMode(instance: cytoscape.Core): void {
   instance.nodes('[type="group"]').removeClass('group-focused group-dimmed');
   instance.nodes().not('[type="group"]').removeClass('group-faded');
   instance.edges().removeClass('group-faded');
-  restoreOverview(instance);
 }
 
 /**
@@ -38,9 +29,6 @@ function selectNodeChain(instance: cytoscape.Core, node: cytoscape.NodeSingular)
 
   chainNodes.addClass('selected-neighbor');
   chainEdges.addClass('selected-connected');
-  const chainEdgeIds = new Set<string>();
-  chainEdges.forEach((e: cytoscape.EdgeSingular) => chainEdgeIds.add(e.id()));
-  unbundleChain(instance, chainEdgeIds);
 
   // Build focus set for quick lookup
   const focusNodeIds = new Set<string>();
@@ -159,9 +147,6 @@ export function bindGraphInteractions(
       if (!connected) e.addClass('group-faded');
     });
 
-    // Level 2: unbundle — show original edges for this group
-    unbundleGroup(instance, target.id());
-
     // Zoom to fit the group
     const groupEles = children.add(target);
     instance.animate({
@@ -199,7 +184,6 @@ export function bindGraphInteractions(
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target as cytoscape.NodeSingular;
     if (node.data('type') === 'group') return;
-    if (node.data('type') === 'convergence') return;
     // Impact mode — use additive hover (don't override impact colors)
     if (instance.nodes('.impact-root').length > 0) {
       node.addClass('impact-hover');
@@ -207,20 +191,17 @@ export function bindGraphInteractions(
     }
     if (instance.nodes('.selected-node').length > 0) return;
 
-    // Temporarily unbundle edges involving this node
-    unbundleNode(instance, node.id());
-
     // Tier 3: dim everything
-    instance.nodes().not('[type="convergence"]').addClass('hover-dimmed');
-    instance.edges().not('[bundleType]').addClass('hover-dimmed');
+    instance.nodes().addClass('hover-dimmed');
+    instance.edges().addClass('hover-dimmed');
 
     // Tier 1: focus node
     node.removeClass('hover-dimmed').addClass('hover-focus');
 
     // Tier 2: connected neighbors + edges
-    const neighbors = node.neighborhood('node').not('[type="group"]').not('[type="convergence"]');
+    const neighbors = node.neighborhood('node').not('[type="group"]');
     neighbors.removeClass('hover-dimmed').addClass('hover-neighbor');
-    node.connectedEdges().not('[bundleType]').removeClass('hover-dimmed').addClass('hover-connected');
+    node.connectedEdges().removeClass('hover-dimmed').addClass('hover-connected');
 
     // Keep all ancestor groups of visible nodes visible
     node.union(neighbors).forEach((n: cytoscape.NodeSingular) => {
@@ -234,8 +215,6 @@ export function bindGraphInteractions(
 
   instance.on('mouseout', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
-    if (evt.target.data('type') === 'convergence') return;
-    rebundleNode(instance, evt.target.id());
     instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected impact-hover');
   });
 }

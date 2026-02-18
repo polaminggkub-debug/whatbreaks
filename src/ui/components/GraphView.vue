@@ -8,7 +8,6 @@ import { getStylesheet } from '../utils/graphStyles.js';
 import { buildElements } from '../utils/buildCytoscapeElements.js';
 import { bindGraphInteractions, clearFocusMode } from '../composables/useGraphInteractions.js';
 import { focusNode as focusNodeUtil } from '../composables/useGraphInteractions.js';
-import { applyEdgeBundling } from '../utils/edgeBundling.js';
 import {
   applyHighlight as applyHighlightUtil,
   highlightCycle as highlightCycleUtil,
@@ -151,12 +150,11 @@ function initCytoscape() {
 
   // Auto-frame: ensure minimum readable zoom after layout
   instance.one('layoutstop', () => {
-    applyEdgeBundling(instance);
     const zoom = instance.zoom();
     if (zoom < 0.35) {
       instance.animate({
         zoom: 0.35,
-        center: { eles: instance.elements().not('[type="convergence"]') },
+        center: { eles: instance.elements() },
         duration: 400,
         easing: 'ease-out-cubic',
       });

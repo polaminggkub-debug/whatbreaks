@@ -1,7 +1,6 @@
 import type cytoscape from 'cytoscape';
 import type { FailingResult, RefactorResult } from '../../types/graph.js';
 import { clearFocusMode } from '../composables/useGraphInteractions.js';
-import { unbundleImpact } from './edgeBundling.js';
 
 /**
  * Applies impact highlight styling to the graph based on analysis results.
@@ -47,7 +46,6 @@ export function applyHighlight(
   });
 
   classifyEdges(instance, affectedNodeIds);
-  unbundleImpact(instance);
   startEdgeAnimation();
   animateToAffected(instance, affectedNodeIds);
 }
