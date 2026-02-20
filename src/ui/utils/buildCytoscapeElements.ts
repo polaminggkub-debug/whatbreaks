@@ -136,7 +136,8 @@ export function buildElements(graph: Graph, options: BuildElementsOptions): cyto
     }));
 
   // Pre-compute aggregate edges between groups (hidden by default, shown on collapse)
-  const aggregateEdges = computeAggregateEdges(graph, nodeIds, nodeParentMap);
+  const emittedGroupIds = new Set(groupNodes.map(g => g.data.id as string));
+  const aggregateEdges = computeAggregateEdges(graph, nodeIds, nodeParentMap, emittedGroupIds);
 
   return [...groupNodes, ...nodes, ...edges, ...aggregateEdges];
 }
@@ -233,13 +234,15 @@ function computeAggregateEdges(
   graph: Graph,
   nodeIds: Set<string>,
   nodeParentMap: Map<string, string>,
+  emittedGroupIds: Set<string>,
 ): cytoscape.ElementDefinition[] {
   if (!graph.groups?.length) return [];
 
-  // Map every file to its top-level (level-0) group
+  // Map every file to its top-level (level-0) group — only groups that exist in the elements
   const nodeToTopGroup = new Map<string, string>();
   const level0Groups = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
   for (const group of level0Groups) {
+    if (!emittedGroupIds.has(group.id)) continue; // skip groups filtered out by buildCoseGroups/buildDagreGroups
     const allIds = getAllDescendantNodeIds(group, graph.groups);
     for (const nodeId of allIds) {
       if (nodeIds.has(nodeId)) nodeToTopGroup.set(nodeId, group.id);
