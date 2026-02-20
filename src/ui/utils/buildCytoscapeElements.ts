@@ -135,7 +135,10 @@ export function buildElements(graph: Graph, options: BuildElementsOptions): cyto
       },
     }));
 
-  return [...groupNodes, ...nodes, ...edges];
+  // Pre-compute aggregate edges between groups (hidden by default, shown on collapse)
+  const aggregateEdges = computeAggregateEdges(graph, nodeIds, nodeParentMap);
+
+  return [...groupNodes, ...nodes, ...edges, ...aggregateEdges];
 }
 
 /** Flatten groups for force-directed (cose) layout — single-level compounds. */
@@ -219,4 +222,61 @@ function buildDagreGroups(
       }
     }
   }
+}
+
+/**
+ * Pre-computes aggregate edges between groups.
+ * Each aggregate edge represents N real edges crossing a group boundary.
+ * Built once, toggled via CSS classes on collapse/expand.
+ */
+function computeAggregateEdges(
+  graph: Graph,
+  nodeIds: Set<string>,
+  nodeParentMap: Map<string, string>,
+): cytoscape.ElementDefinition[] {
+  if (!graph.groups?.length) return [];
+
+  // Map every file to its top-level (level-0) group
+  const nodeToTopGroup = new Map<string, string>();
+  const level0Groups = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
+  for (const group of level0Groups) {
+    const allIds = getAllDescendantNodeIds(group, graph.groups);
+    for (const nodeId of allIds) {
+      if (nodeIds.has(nodeId)) nodeToTopGroup.set(nodeId, group.id);
+    }
+  }
+
+  // Count cross-boundary edges per (source, target) pair
+  const aggCounts = new Map<string, number>();
+  for (const edge of graph.edges) {
+    if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) continue;
+
+    const srcGroup = nodeToTopGroup.get(edge.source);
+    const tgtGroup = nodeToTopGroup.get(edge.target);
+
+    // Skip intra-group edges
+    if (srcGroup && srcGroup === tgtGroup) continue;
+    // Skip if neither end is in a group
+    if (!srcGroup && !tgtGroup) continue;
+
+    const aggSrc = srcGroup ?? edge.source;
+    const aggTgt = tgtGroup ?? edge.target;
+    const key = `${aggSrc}\0${aggTgt}`;
+    aggCounts.set(key, (aggCounts.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(aggCounts.entries()).map(([key, count]) => {
+    const [src, tgt] = key.split('\0');
+    return {
+      data: {
+        id: `agg-${src}-${tgt}`,
+        source: src,
+        target: tgt,
+        edgeType: 'aggregate',
+        count,
+        label: String(count),
+      },
+      classes: 'aggregate-edge',
+    };
+  });
 }
