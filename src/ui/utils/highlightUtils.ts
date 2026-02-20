@@ -1,6 +1,7 @@
 import type cytoscape from 'cytoscape';
 import type { FailingResult, RefactorResult } from '../../types/graph.js';
 import { clearFocusMode, clearHubState, restoreHubEdges } from '../composables/useGraphInteractions.js';
+import { expandGroupsForImpact, restoreGroupsAfterImpact } from '../composables/useGroupCollapse.js';
 
 /**
  * Applies impact highlight styling to the graph based on analysis results.
@@ -23,6 +24,7 @@ export function applyHighlight(
   instance.edges().removeClass('impact-path impact-path-indirect impact-unaffected selected-connected');
 
   if (!result) {
+    restoreGroupsAfterImpact(instance);
     restoreHubEdges(instance);
     return;
   }
@@ -34,6 +36,9 @@ export function applyHighlight(
   } else {
     classifyRefactorNodes(instance, result as RefactorResult, affectedNodeIds);
   }
+
+  // Auto-expand collapsed groups containing affected nodes
+  expandGroupsForImpact(instance, affectedNodeIds);
 
   // Mark unaffected nodes
   instance.nodes().forEach((n: cytoscape.NodeSingular) => {
