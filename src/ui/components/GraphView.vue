@@ -9,6 +9,11 @@ import { buildElements } from '../utils/buildCytoscapeElements.js';
 import { bindGraphInteractions, clearFocusMode } from '../composables/useGraphInteractions.js';
 import { focusNode as focusNodeUtil } from '../composables/useGraphInteractions.js';
 import {
+  initGroupCollapse,
+  collapseAllGroups,
+  resetCollapseState,
+} from '../composables/useGroupCollapse.js';
+import {
   applyHighlight as applyHighlightUtil,
   highlightCycle as highlightCycleUtil,
   clearCycleHighlight as clearCycleHighlightUtil,
@@ -144,6 +149,7 @@ function initCytoscape() {
 
   if (cy.value) {
     cy.value.destroy();
+    resetCollapseState();
   }
 
   const elements = buildElements(props.graph, {
@@ -176,6 +182,9 @@ function initCytoscape() {
       });
     }
     detectHubs(instance);
+    // Initialize and collapse all groups (default state)
+    initGroupCollapse(instance);
+    collapseAllGroups(instance);
   });
 
   bindGraphInteractions(

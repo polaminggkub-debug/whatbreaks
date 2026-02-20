@@ -1,4 +1,5 @@
 import type cytoscape from 'cytoscape';
+import { expandGroup, collapseGroup, getCollapsedGroups } from './useGroupCollapse.js';
 
 /**
  * Clears all group focus mode classes.
@@ -154,11 +155,18 @@ export function bindGraphInteractions(
     emitNodeClick(node.id());
   });
 
-  // Click group — focus mode: dim everything else, zoom in
+  // Click group — collapsed: expand. Expanded: focus mode. Right-click: collapse.
   instance.on('tap', 'node[type="group"]', (evt) => {
     const target = evt.target as cytoscape.NodeSingular;
+    const groupId = target.id();
 
-    // Toggle off if already focused
+    // Collapsed group → expand on click
+    if (target.hasClass('group-collapsed')) {
+      expandGroup(instance, groupId);
+      return;
+    }
+
+    // Expanded group → existing focus mode toggle
     if (target.hasClass('group-focused')) {
       clearFocusMode(instance);
       instance.animate({
@@ -204,6 +212,14 @@ export function bindGraphInteractions(
       duration: 400,
       easing: 'ease-out-cubic',
     });
+  });
+
+  // Right-click group — collapse expanded group
+  instance.on('cxttap', 'node[type="group"]', (evt) => {
+    const target = evt.target as cytoscape.NodeSingular;
+    if (!target.hasClass('group-collapsed') && (target.data('level') === 0 || !target.data('parentGroupId'))) {
+      collapseGroup(instance, target.id());
+    }
   });
 
   // Click background — clear all focus modes, zoom back to full graph
