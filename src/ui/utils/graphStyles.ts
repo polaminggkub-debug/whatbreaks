@@ -451,5 +451,64 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'z-index': 500,
       } as unknown as cytoscape.Css.Edge,
     },
+    // ── Group collapse/expand ──────────────────────────────────────────
+    // Collapsed group — fixed size, centered label with file count
+    {
+      selector: 'node[type="group"].group-collapsed',
+      style: {
+        'padding': '30px',
+        'text-valign': 'center',
+        'text-halign': 'center',
+        'text-wrap': 'wrap',
+        'text-max-width': '120px',
+        'label': 'data(collapsedLabel)',
+        'background-opacity': 0.25,
+        'border-width': 3,
+        'font-size': '12px',
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Children of collapsed group — hidden
+    {
+      selector: 'node.collapsed-child',
+      style: {
+        'display': 'none',
+      } as unknown as cytoscape.Css.Node,
+    },
+    // Edges touching collapsed children — hidden
+    {
+      selector: 'edge.collapsed-edge',
+      style: {
+        'display': 'none',
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Aggregate edges — hidden by default
+    {
+      selector: 'edge.aggregate-edge',
+      style: {
+        'display': 'none',
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Aggregate edges — visible when groups are collapsed
+    {
+      selector: 'edge.aggregate-edge.aggregate-visible',
+      style: {
+        'display': 'element',
+        'width': 'mapData(count, 1, 20, 2.5, 8)',
+        'line-color': '#818cf8',
+        'target-arrow-color': '#818cf8',
+        'target-arrow-shape': 'triangle',
+        'arrow-scale': 0.8,
+        'opacity': 0.7,
+        'curve-style': 'bezier',
+        'label': 'data(label)',
+        'color': '#e2e8f0',
+        'font-size': '10px',
+        'text-background-color': '#0f172a',
+        'text-background-opacity': 0.9,
+        'text-background-padding': '3px',
+        'text-rotation': 'autorotate',
+        'z-index': 10,
+      } as unknown as cytoscape.Css.Edge,
+    },
   ];
 }
