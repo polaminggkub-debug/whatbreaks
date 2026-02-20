@@ -55,6 +55,13 @@ export function buildElements(graph: Graph, options: BuildElementsOptions): cyto
 
   const nodeIds = new Set(filteredNodes.map((n: GraphNode) => n.id));
 
+  // Compute in-degree: count of edges targeting each node (how many files depend on it)
+  const inDegreeMap = new Map<string, number>();
+  for (const e of graph.edges) {
+    if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) continue;
+    inDegreeMap.set(e.target, (inDegreeMap.get(e.target) ?? 0) + 1);
+  }
+
   // Create group (compound parent) nodes
   const groupNodes: cytoscape.ElementDefinition[] = [];
   const nodeParentMap = new Map<string, string>();
@@ -109,6 +116,10 @@ export function buildElements(graph: Graph, options: BuildElementsOptions): cyto
       layerIndex: n.layerIndex ?? 0,
       fanIn: n.fanIn ?? 0,
       depth: n.depth ?? 0,
+      inDegree: inDegreeMap.get(n.id) ?? 0,
+      hubLabel: (inDegreeMap.get(n.id) ?? 0) > 10
+        ? `${n.label}\n${inDegreeMap.get(n.id)} deps`
+        : n.label,
       parent: nodeParentMap.get(n.id) ?? undefined,
     },
   }));

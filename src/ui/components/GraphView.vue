@@ -123,6 +123,22 @@ function startEdgeAnimation() {
   edgeAnimationId = requestAnimationFrame(tick);
 }
 
+const HUB_THRESHOLD = 10;
+
+function detectHubs(instance: cytoscape.Core) {
+  instance.nodes().not('[type="group"]').forEach((node: cytoscape.NodeSingular) => {
+    const inDegree = node.data('inDegree') as number;
+    if (inDegree > HUB_THRESHOLD) {
+      node.addClass('hub');
+      // Scale border width: min(2 + sqrt(inDegree), 8)
+      const borderW = Math.min(2 + Math.sqrt(inDegree), 8);
+      node.style('border-width', borderW);
+      // Hide connected edges
+      node.connectedEdges().addClass('hub-edge-hidden');
+    }
+  });
+}
+
 function initCytoscape() {
   if (!containerRef.value || !props.graph) return;
 
@@ -159,6 +175,7 @@ function initCytoscape() {
         easing: 'ease-out-cubic',
       });
     }
+    detectHubs(instance);
   });
 
   bindGraphInteractions(

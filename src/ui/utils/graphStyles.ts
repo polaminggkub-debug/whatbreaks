@@ -132,6 +132,17 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'font-weight': 700,
       } as unknown as cytoscape.Css.Node,
     },
+    // Hub node — scaled border width, multiline label
+    {
+      selector: 'node.hub',
+      style: {
+        'label': 'data(hubLabel)',
+        'text-wrap': 'wrap',
+        'text-max-width': '120px',
+        'font-weight': 700,
+        'z-index': 100,
+      } as unknown as cytoscape.Css.Node,
+    },
     // Test nodes use structural layer color (border) — test level is encoded by icon shape
     {
       selector: 'node:active',
@@ -406,6 +417,38 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
       style: {
         'line-style': 'dashed',
         'line-dash-pattern': [6, 3],
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Hub edges — hidden by default (MUST be after base 'edge' selector to win cascade)
+    {
+      selector: 'edge.hub-edge-hidden',
+      style: {
+        'opacity': 0,
+        'events': 'no',
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Hub edges — preview on hover
+    {
+      selector: 'edge.hub-edge-preview',
+      style: {
+        'opacity': 0.6,
+        'events': 'no',
+        'line-color': '#94a3b8',
+        'target-arrow-color': '#94a3b8',
+        'width': 1.5,
+        'z-index': 500,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Hub edges — locked on click
+    {
+      selector: 'edge.hub-edge-locked',
+      style: {
+        'opacity': 0.6,
+        'events': 'yes',
+        'line-color': '#94a3b8',
+        'target-arrow-color': '#94a3b8',
+        'width': 1.5,
+        'z-index': 500,
       } as unknown as cytoscape.Css.Edge,
     },
   ];

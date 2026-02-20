@@ -9,6 +9,29 @@ export function clearFocusMode(instance: cytoscape.Core): void {
   instance.edges().removeClass('group-faded');
 }
 
+/** Currently locked (expanded) hub node ID, or null. */
+let lockedHubId: string | null = null;
+
+/** Collapse a hub: hide its edges, update label. */
+function collapseHub(instance: cytoscape.Core, nodeId: string): void {
+  const node = instance.getElementById(nodeId) as cytoscape.NodeSingular;
+  if (!node.length || !node.hasClass('hub')) return;
+  node.connectedEdges().forEach((e: cytoscape.EdgeSingular) => {
+    e.removeClass('hub-edge-preview hub-edge-locked');
+    e.addClass('hub-edge-hidden');
+  });
+  // Restore original label (remove " (pinned)" suffix)
+  const label = node.data('hubLabel') as string;
+  if (label?.includes(' (pinned)')) {
+    node.data('hubLabel', label.replace(' (pinned)', ''));
+  }
+}
+
+/** Check if impact mode is active. */
+function isImpactActive(instance: cytoscape.Core): boolean {
+  return instance.nodes('.impact-root').length > 0;
+}
+
 /**
  * Selects a node and shows its full transitive dependency chain.
  * Dims everything outside the chain.
@@ -90,6 +113,33 @@ export function bindGraphInteractions(
   instance.on('tap', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
     const node = evt.target as cytoscape.NodeSingular;
+
+    // Hub click — toggle lock
+    if (node.hasClass('hub') && !isImpactActive(instance)) {
+      if (lockedHubId === node.id()) {
+        // Clicking locked hub → collapse
+        collapseHub(instance, node.id());
+        lockedHubId = null;
+        return;
+      }
+      // Collapse previous locked hub
+      if (lockedHubId) {
+        collapseHub(instance, lockedHubId);
+      }
+      // Lock this hub
+      lockedHubId = node.id();
+      node.connectedEdges().forEach((e: cytoscape.EdgeSingular) => {
+        e.removeClass('hub-edge-hidden hub-edge-preview');
+        e.addClass('hub-edge-locked');
+      });
+      // Update label to show pinned state
+      const label = node.data('hubLabel') as string;
+      if (label && !label.includes('(pinned)')) {
+        node.data('hubLabel', label + ' (pinned)');
+      }
+      return;
+    }
+
     selectNodeChain(instance, node);
 
     // Animate to the chain
@@ -159,6 +209,12 @@ export function bindGraphInteractions(
   // Click background — clear all focus modes, zoom back to full graph
   instance.on('tap', (evt) => {
     if (evt.target === instance) {
+      // Collapse any locked hub
+      if (lockedHubId) {
+        collapseHub(instance, lockedHubId);
+        lockedHubId = null;
+      }
+
       const hadFocus = instance.nodes('.selected-node, .group-focused').length > 0;
       instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
       clearFocusMode(instance);  // Resets to Level 1 (collapses aggregation)
@@ -184,6 +240,18 @@ export function bindGraphInteractions(
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target as cytoscape.NodeSingular;
     if (node.data('type') === 'group') return;
+
+    // Hub hover preview (skip during impact mode)
+    if (node.hasClass('hub') && !isImpactActive(instance)) {
+      // Show connected edges as preview
+      node.connectedEdges().forEach((e: cytoscape.EdgeSingular) => {
+        if (e.hasClass('hub-edge-hidden')) {
+          e.removeClass('hub-edge-hidden');
+          e.addClass('hub-edge-preview');
+        }
+      });
+    }
+
     // Impact mode — use additive hover (don't override impact colors)
     if (instance.nodes('.impact-root').length > 0) {
       node.addClass('impact-hover');
@@ -215,6 +283,18 @@ export function bindGraphInteractions(
 
   instance.on('mouseout', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
+
+    // Restore hub edge hiding on mouseout (unless locked)
+    const mouseOutNode = evt.target as cytoscape.NodeSingular;
+    if (mouseOutNode.hasClass('hub') && mouseOutNode.id() !== lockedHubId) {
+      mouseOutNode.connectedEdges().forEach((e: cytoscape.EdgeSingular) => {
+        if (e.hasClass('hub-edge-preview')) {
+          e.removeClass('hub-edge-preview');
+          e.addClass('hub-edge-hidden');
+        }
+      });
+    }
+
     instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected impact-hover');
   });
 }
@@ -235,4 +315,30 @@ export function focusNode(instance: cytoscape.Core, nodeId: string): void {
     duration: 400,
     easing: 'ease-out-cubic',
   });
+}
+
+/**
+ * Clears all hub disclosure state — collapses locked hub, removes preview classes.
+ * Called when impact mode activates.
+ */
+export function clearHubState(instance: cytoscape.Core): void {
+  if (lockedHubId) {
+    collapseHub(instance, lockedHubId);
+    lockedHubId = null;
+  }
+  instance.edges('.hub-edge-preview').removeClass('hub-edge-preview').addClass('hub-edge-hidden');
+}
+
+/**
+ * Restores hub edge hiding on all hub nodes.
+ * Called when impact mode clears.
+ */
+export function restoreHubEdges(instance: cytoscape.Core): void {
+  instance.nodes('.hub').forEach((hubNode: cytoscape.NodeSingular) => {
+    hubNode.connectedEdges().forEach((e: cytoscape.EdgeSingular) => {
+      e.removeClass('hub-edge-preview hub-edge-locked');
+      e.addClass('hub-edge-hidden');
+    });
+  });
+  lockedHubId = null;
 }

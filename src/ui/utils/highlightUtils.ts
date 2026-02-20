@@ -1,6 +1,6 @@
 import type cytoscape from 'cytoscape';
 import type { FailingResult, RefactorResult } from '../../types/graph.js';
-import { clearFocusMode } from '../composables/useGraphInteractions.js';
+import { clearFocusMode, clearHubState, restoreHubEdges } from '../composables/useGraphInteractions.js';
 
 /**
  * Applies impact highlight styling to the graph based on analysis results.
@@ -14,11 +14,18 @@ export function applyHighlight(
 ): void {
   stopEdgeAnimation();
   clearFocusMode(instance);
+  clearHubState(instance);
+  // Strip all hub-edge classes so impact classification takes over
+  instance.edges('.hub-edge-hidden, .hub-edge-preview, .hub-edge-locked')
+    .removeClass('hub-edge-hidden hub-edge-preview hub-edge-locked');
 
   instance.nodes().removeClass('impact-root impact-direct impact-indirect impact-unaffected impact-group-visible selected-neighbor');
   instance.edges().removeClass('impact-path impact-path-indirect impact-unaffected selected-connected');
 
-  if (!result) return;
+  if (!result) {
+    restoreHubEdges(instance);
+    return;
+  }
 
   const affectedNodeIds = new Set<string>();
 
