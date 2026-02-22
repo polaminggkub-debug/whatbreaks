@@ -18,7 +18,10 @@ export function getCollapsedGroups(): ReadonlySet<string> {
 export function initGroupCollapse(instance: cytoscape.Core): void {
   allGroupIds = new Set<string>();
   instance.nodes('[type="group"]').forEach((g: cytoscape.NodeSingular) => {
-    if (g.data('level') === 0 || !g.data('parentGroupId')) {
+    // Include level-0 groups AND promoted subgroups (level-1 groups whose parent
+    // was removed due to MAX_COMPOUND_SIZE — they have no parent element in the graph)
+    const hasParentInGraph = g.data('parent') != null;
+    if (g.data('level') === 0 || !g.data('parentGroupId') || !hasParentInGraph) {
       allGroupIds.add(g.id());
     }
   });

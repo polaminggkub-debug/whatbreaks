@@ -13,6 +13,43 @@ export function clearFocusMode(instance: cytoscape.Core): void {
 /** Currently locked (expanded) hub node ID, or null. */
 let lockedHubId: string | null = null;
 
+// ── Group tooltip (right-click to collapse hint) ────────────────────
+let groupTooltip: HTMLDivElement | null = null;
+
+function getGroupTooltip(): HTMLDivElement {
+  if (!groupTooltip) {
+    groupTooltip = document.createElement('div');
+    groupTooltip.className = 'wb-group-tooltip';
+    groupTooltip.textContent = 'Right-click to collapse';
+    Object.assign(groupTooltip.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      background: 'rgba(15, 23, 42, 0.9)',
+      color: '#94a3b8',
+      fontSize: '11px',
+      padding: '4px 8px',
+      borderRadius: '4px',
+      border: '1px solid rgba(100, 116, 139, 0.3)',
+      zIndex: '9999',
+      display: 'none',
+      whiteSpace: 'nowrap',
+    });
+    document.body.appendChild(groupTooltip);
+  }
+  return groupTooltip;
+}
+
+function showGroupTooltip(x: number, y: number): void {
+  const tip = getGroupTooltip();
+  tip.style.left = `${x + 12}px`;
+  tip.style.top = `${y - 8}px`;
+  tip.style.display = 'block';
+}
+
+function hideGroupTooltip(): void {
+  if (groupTooltip) groupTooltip.style.display = 'none';
+}
+
 /** Collapse a hub: hide its edges, update label. */
 function collapseHub(instance: cytoscape.Core, nodeId: string): void {
   const node = instance.getElementById(nodeId) as cytoscape.NodeSingular;
@@ -214,11 +251,16 @@ export function bindGraphInteractions(
     });
   });
 
-  // Right-click group — collapse expanded group
+  // Right-click group — collapse expanded group (level-0 or promoted subgroups)
   instance.on('cxttap', 'node[type="group"]', (evt) => {
     const target = evt.target as cytoscape.NodeSingular;
-    if (!target.hasClass('group-collapsed') && (target.data('level') === 0 || !target.data('parentGroupId'))) {
-      collapseGroup(instance, target.id());
+    if (!target.hasClass('group-collapsed')) {
+      // Allow collapse for top-level groups OR promoted subgroups (no parent in graph)
+      const isTopLevel = target.data('level') === 0 || !target.data('parentGroupId');
+      const isPromoted = target.data('parent') == null;
+      if (isTopLevel || isPromoted) {
+        collapseGroup(instance, target.id());
+      }
     }
   });
 
@@ -250,6 +292,22 @@ export function bindGraphInteractions(
     const node = evt.target as cytoscape.NodeSingular;
     const pos = evt.renderedPosition;
     emitContextMenu(pos.x, pos.y, node.id(), node.data('label'));
+  });
+
+  // Group hover — show "right-click to collapse" tooltip on expanded groups
+  instance.on('mouseover', 'node[type="group"]', (evt) => {
+    const group = evt.target as cytoscape.NodeSingular;
+    if (group.hasClass('group-collapsed')) return;
+    const rendered = evt.renderedPosition;
+    const container = instance.container();
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      showGroupTooltip(rect.left + rendered.x, rect.top + rendered.y);
+    }
+  });
+
+  instance.on('mouseout', 'node[type="group"]', () => {
+    hideGroupTooltip();
   });
 
   // Hover focus: 3-tier dim model (skip during impact analysis)

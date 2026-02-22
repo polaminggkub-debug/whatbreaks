@@ -137,7 +137,7 @@ export function buildElements(graph: Graph, options: BuildElementsOptions): cyto
 
   // Pre-compute aggregate edges between groups (hidden by default, shown on collapse)
   const emittedGroupIds = new Set(groupNodes.map(g => g.data.id as string));
-  const aggregateEdges = computeAggregateEdges(graph, nodeIds, nodeParentMap, emittedGroupIds);
+  const aggregateEdges = computeAggregateEdges(graph, nodeIds, emittedGroupIds, groupNodes);
 
   return [...groupNodes, ...nodes, ...edges, ...aggregateEdges];
 }
@@ -233,19 +233,38 @@ function buildDagreGroups(
 function computeAggregateEdges(
   graph: Graph,
   nodeIds: Set<string>,
-  nodeParentMap: Map<string, string>,
   emittedGroupIds: Set<string>,
+  groupDefs: cytoscape.ElementDefinition[],
 ): cytoscape.ElementDefinition[] {
   if (!graph.groups?.length) return [];
 
-  // Map every file to its top-level (level-0) group — only groups that exist in the elements
+  // Map every file to its outermost emitted group.
+  // For each top-level emitted group (no emitted parent), recursively collect
+  // all descendant nodes through the graph.groups hierarchy.
+  // This handles both regular groups AND promoted subgroups (whose parent group
+  // was removed due to MAX_COMPOUND_SIZE).
   const nodeToTopGroup = new Map<string, string>();
-  const level0Groups = graph.groups.filter(g => g.level === 0 || !g.parentGroupId);
-  for (const group of level0Groups) {
-    if (!emittedGroupIds.has(group.id)) continue; // skip groups filtered out by buildCoseGroups/buildDagreGroups
-    const allIds = getAllDescendantNodeIds(group, graph.groups);
-    for (const nodeId of allIds) {
-      if (nodeIds.has(nodeId)) nodeToTopGroup.set(nodeId, group.id);
+
+  for (const gdef of groupDefs) {
+    const gid = gdef.data.id as string;
+    const parent = gdef.data.parent as string | undefined;
+    // Skip subgroups whose parent is also an emitted group — they're nested, not top-level
+    if (parent && emittedGroupIds.has(parent)) continue;
+
+    // Top-level group: collect all descendant nodes through graph.groups hierarchy
+    const stack = [gid];
+    while (stack.length) {
+      const current = stack.pop()!;
+      const graphGroup = graph.groups!.find(g => g.id === current);
+      if (graphGroup) {
+        for (const nodeId of graphGroup.nodeIds) {
+          if (nodeIds.has(nodeId)) nodeToTopGroup.set(nodeId, gid);
+        }
+      }
+      // Push child groups in the original hierarchy
+      for (const g of graph.groups!) {
+        if (g.parentGroupId === current) stack.push(g.id);
+      }
     }
   }
 
