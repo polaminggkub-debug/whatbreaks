@@ -165,17 +165,28 @@ function animateToAffected(instance: cytoscape.Core, affectedNodeIds: Set<string
     (instance.height() - 2 * pad) / bb.h,
   );
 
-  if (fitZoom >= 0.45) {
-    instance.animate({
-      fit: { eles: affectedNodes, padding: pad },
-      duration: 400,
-      easing: 'ease-out-cubic',
-    });
-  } else {
+  const maxZoom = 1.2;
+
+  if (fitZoom < 0.45) {
+    // Too zoomed out (many nodes spread wide): center on root at a readable zoom
     const rootNode = instance.nodes('.impact-root');
     instance.animate({
       center: { eles: rootNode.length ? rootNode : affectedNodes },
       zoom: 0.55,
+      duration: 400,
+      easing: 'ease-out-cubic',
+    });
+  } else if (fitZoom > maxZoom) {
+    // Too zoomed in (few nodes close together): cap zoom to avoid giant nodes
+    instance.animate({
+      center: { eles: affectedNodes },
+      zoom: maxZoom,
+      duration: 400,
+      easing: 'ease-out-cubic',
+    });
+  } else {
+    instance.animate({
+      fit: { eles: affectedNodes, padding: pad },
       duration: 400,
       easing: 'ease-out-cubic',
     });
