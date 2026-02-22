@@ -142,6 +142,8 @@ function classifyEdges(instance: cytoscape.Core, affectedNodeIds: Set<string>): 
     const src = e.source().id();
     const tgt = e.target().id();
     if (affectedNodeIds.has(src) && affectedNodeIds.has(tgt)) {
+      // Strip collapsed-edge so impact styles take effect
+      e.removeClass('collapsed-edge');
       if (directIds.has(src) && directIds.has(tgt)) {
         e.addClass('impact-path');
       } else {

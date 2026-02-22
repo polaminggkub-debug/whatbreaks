@@ -73,12 +73,11 @@ export function expandGroup(instance: cytoscape.Core, groupId: string): void {
   // Show subgroup containers
   group.descendants('[type="group"]').removeClass('collapsed-child');
 
-  // Restore real edges — but only if the OTHER end is also visible
+  // Restore real edges — show only if BOTH endpoints are visible
   descendants.connectedEdges().not('.aggregate-edge').forEach((e: cytoscape.EdgeSingular) => {
-    const otherEnd = e.source().id() === e.target().id()
-      ? e.source() : (descendants.contains(e.source()) ? e.target() : e.source());
-    // Only show edge if other end is not in a collapsed group
-    if (!otherEnd.hasClass('collapsed-child')) {
+    const srcVisible = !e.source().hasClass('collapsed-child');
+    const tgtVisible = !e.target().hasClass('collapsed-child');
+    if (srcVisible && tgtVisible) {
       e.removeClass('collapsed-edge');
     }
   });
@@ -86,6 +85,14 @@ export function expandGroup(instance: cytoscape.Core, groupId: string): void {
   group.removeClass('group-collapsed');
 
   refreshAggregateEdges(instance);
+
+  // Fit viewport to expanded group so it doesn't stretch off-screen
+  const expandedEles = group.add(descendants);
+  instance.animate({
+    fit: { eles: expandedEles, padding: 60 },
+    duration: 300,
+    easing: 'ease-out-cubic',
+  });
 }
 
 /** Toggle collapse/expand for a group. */

@@ -218,6 +218,14 @@ watch(() => props.highlightResult, (result) => {
 
 watch(() => [props.layoutMode, props.showTests, props.showFoundation, props.sizeMode], () => {
   initCytoscape();
+  // Re-apply active highlight after graph rebuild (filter toggle)
+  if (props.highlightResult && cy.value) {
+    cy.value.one('layoutstop', () => {
+      if (cy.value && props.highlightResult) {
+        applyHighlightUtil(cy.value, props.highlightResult, startEdgeAnimation, stopEdgeAnimation);
+      }
+    });
+  }
 });
 
 // Exposed methods — delegate to extracted utilities

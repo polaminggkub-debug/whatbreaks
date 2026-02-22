@@ -488,6 +488,19 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'display': 'none',
       } as unknown as cytoscape.Css.Edge,
     },
+    // Impact edges override collapsed-edge — must appear AFTER collapsed-edge selector
+    {
+      selector: 'edge.impact-path',
+      style: {
+        'display': 'element',
+      } as unknown as cytoscape.Css.Edge,
+    },
+    {
+      selector: 'edge.impact-path-indirect',
+      style: {
+        'display': 'element',
+      } as unknown as cytoscape.Css.Edge,
+    },
     // Aggregate edges — visible when groups are collapsed
     {
       selector: 'edge.aggregate-edge.aggregate-visible',
