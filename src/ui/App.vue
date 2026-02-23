@@ -4,17 +4,19 @@ import type { Graph, GraphNode } from '../types/graph';
 import GraphView from './components/GraphView.vue';
 import NodePanel from './components/NodePanel.vue';
 import ModeToggle from './components/ModeToggle.vue';
-import SearchBar from './components/SearchBar.vue';
+
 import Legend from './components/Legend.vue';
 import ViewControls from './components/ViewControls.vue';
 import ContextMenu from './components/ContextMenu.vue';
 import ImpactToast from './components/ImpactToast.vue';
 import HealthPanel from './components/HealthPanel.vue';
+import GuideMeWalkthrough from './components/GuideMeWalkthrough.vue';
 import { useImpact } from './composables/useImpact';
 import { useHealth } from './composables/useHealth';
 import { useMode } from './composables/useMode';
 import { useDevSocket } from './composables/useDevSocket';
 import { useAppHandlers } from './composables/useAppHandlers';
+import { useWalkthrough } from './composables/useWalkthrough';
 
 const graph = ref<Graph | null>(null);
 const selectedNode = ref<GraphNode | null>(null);
@@ -35,6 +37,7 @@ const { healthReport } = useHealth(graph);
 const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
 
 const showHealth = ref(false);
+const walkthrough = useWalkthrough(() => graph.value);
 
 const {
   ctxMenu,
@@ -56,6 +59,13 @@ const {
   onHealthAnalyzeTest,
   onHealthHighlightCycle,
 } = useAppHandlers(graph, selectedNode, graphViewRef, impact, modeState, showHealth);
+
+// Auto-dismiss walkthrough when impact analysis starts
+watch(highlightResult, (result) => {
+  if (result && walkthrough.isActive.value) {
+    walkthrough.finish(graphViewRef.value?.getCy?.() ?? undefined);
+  }
+});
 
 // When dev socket provides a graph, use it
 watch(devGraph, (newGraph) => {
@@ -96,53 +106,55 @@ onMounted(async () => {
 <template>
   <div class="app">
     <header class="topbar">
-      <div class="topbar-left">
-        <div class="logo">
-          <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <defs>
-              <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ef4444" />
-                <stop offset="100%" stop-color="#f59e0b" />
-              </linearGradient>
-            </defs>
-            <polygon points="12 2, 22 8.5, 22 15.5, 12 22, 2 15.5, 2 8.5" />
-            <line x1="12" y1="2" x2="12" y2="22" />
-            <line x1="2" y1="8.5" x2="22" y2="8.5" />
-          </svg>
-          <span class="logo-text">WhatBreaks</span>
-        </div>
-
-        <!-- Dev mode live indicator -->
-        <div v-if="isDevMode" class="dev-badge" :class="{ connected: isConnected }">
-          <span class="dev-dot"></span>
-          <span class="dev-label">{{ isConnected ? 'LIVE' : 'RECONNECTING' }}</span>
-        </div>
+      <div class="logo">
+        <svg class="logo-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <defs>
+            <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ef4444" />
+              <stop offset="100%" stop-color="#f59e0b" />
+            </linearGradient>
+          </defs>
+          <polygon points="12 2, 22 8.5, 22 15.5, 12 22, 2 15.5, 2 8.5" />
+          <line x1="12" y1="2" x2="12" y2="22" />
+          <line x1="2" y1="8.5" x2="22" y2="8.5" />
+        </svg>
+        <span class="logo-text">WhatBreaks</span>
       </div>
 
-      <div class="topbar-center">
-        <ModeToggle
-          :modelValue="mode"
-          :nodes="graph?.nodes ?? []"
-          @update:modelValue="onModeChange"
-          @analyze="onAnalyze"
-        />
+      <!-- Dev mode live indicator -->
+      <div v-if="isDevMode" class="dev-badge" :class="{ connected: isConnected }">
+        <span class="dev-dot"></span>
+        <span class="dev-label">{{ isConnected ? 'LIVE' : 'RECONNECTING' }}</span>
       </div>
 
-      <div class="topbar-right">
-        <SearchBar :nodes="graph?.nodes ?? []" @select="onNodeSelect" />
-        <ViewControls
-          :layout="layoutMode"
-          :showTests="showTests"
-          :showFoundation="showFoundation"
-          :sizeMode="sizeMode"
-          :showHealth="showHealth"
-          @update:layout="layoutMode = $event"
-          @update:showTests="showTests = $event"
-          @update:showFoundation="showFoundation = $event"
-          @update:sizeMode="sizeMode = $event"
-          @update:showHealth="showHealth = $event"
-        />
-      </div>
+      <button
+        v-if="graph && !walkthrough.isActive.value"
+        class="guide-btn"
+        title="Guided tour of your codebase"
+        @click="walkthrough.start(graphViewRef?.getCy?.() ?? undefined)"
+      >
+        ?&ensp;Guide me
+      </button>
+
+      <ModeToggle
+        :modelValue="mode"
+        :nodes="graph?.nodes ?? []"
+        @update:modelValue="onModeChange"
+        @analyze="onAnalyze"
+      />
+
+      <ViewControls
+        :layout="layoutMode"
+        :showTests="showTests"
+        :showFoundation="showFoundation"
+        :sizeMode="sizeMode"
+        :showHealth="showHealth"
+        @update:layout="layoutMode = $event"
+        @update:showTests="showTests = $event"
+        @update:showFoundation="showFoundation = $event"
+        @update:sizeMode="sizeMode = $event"
+        @update:showHealth="showHealth = $event"
+      />
     </header>
 
     <main id="main" class="main">
@@ -222,6 +234,18 @@ onMounted(async () => {
         @simulateBreak="onSimulateBreak"
         @showImporters="onShowImporters"
         @copyPath="onCopyPath"
+      />
+
+      <!-- Guide me walkthrough -->
+      <GuideMeWalkthrough
+        :isActive="walkthrough.isActive.value"
+        :currentStep="walkthrough.currentStep.value"
+        :totalSteps="walkthrough.totalSteps.value"
+        :title="walkthrough.steps.value[walkthrough.currentStep.value]?.title ?? ''"
+        :description="walkthrough.steps.value[walkthrough.currentStep.value]?.description ?? ''"
+        @next="walkthrough.next(graphViewRef?.getCy?.() ?? undefined)"
+        @previous="walkthrough.previous(graphViewRef?.getCy?.() ?? undefined)"
+        @skip="walkthrough.finish(graphViewRef?.getCy?.() ?? undefined)"
       />
     </main>
 

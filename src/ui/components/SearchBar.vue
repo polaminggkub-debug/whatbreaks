@@ -116,7 +116,8 @@ function onKeydown(e: KeyboardEvent) {
 .search-bar {
   position: relative;
   width: 200px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 120px;
 }
 
 .search-icon {

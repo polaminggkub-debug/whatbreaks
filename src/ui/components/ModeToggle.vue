@@ -174,7 +174,7 @@ function onKeydown(e: KeyboardEvent) {
 .mode-toggle {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
