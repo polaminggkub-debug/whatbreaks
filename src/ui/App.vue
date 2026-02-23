@@ -17,6 +17,7 @@ import { useMode } from './composables/useMode';
 import { useDevSocket } from './composables/useDevSocket';
 import { useAppHandlers } from './composables/useAppHandlers';
 import { useWalkthrough } from './composables/useWalkthrough';
+import { expandGroup, collapseGroup } from './composables/useGroupCollapse';
 
 const graph = ref<Graph | null>(null);
 const selectedNode = ref<GraphNode | null>(null);
@@ -37,7 +38,20 @@ const { healthReport } = useHealth(graph);
 const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
 
 const showHealth = ref(false);
-const walkthrough = useWalkthrough(() => graph.value);
+const walkthrough = useWalkthrough(() => graph.value, {
+  expandGroup,
+  collapseGroup,
+  showContextMenu: (cy, nodeId, nodeLabel) => {
+    const node = cy.getElementById(nodeId);
+    if (!node.length) return;
+    const pos = node.renderedPosition();
+    const container = cy.container();
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      onContextMenu(rect.left + pos.x, rect.top + pos.y, nodeId, nodeLabel);
+    }
+  },
+});
 
 const {
   ctxMenu,

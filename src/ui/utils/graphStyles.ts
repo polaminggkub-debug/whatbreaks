@@ -513,15 +513,46 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'arrow-scale': 0.8,
         'opacity': 0.7,
         'curve-style': 'bezier',
-        'label': 'data(label)',
-        'color': '#e2e8f0',
-        'font-size': '10px',
-        'text-background-color': '#0f172a',
-        'text-background-opacity': 0.9,
-        'text-background-padding': '3px',
-        'text-rotation': 'autorotate',
+        'events': 'yes',
         'z-index': 10,
       } as unknown as cytoscape.Css.Edge,
+    },
+    // Walkthrough highlight — indigo border + overlay
+    {
+      selector: 'node.walkthrough-highlight',
+      style: {
+        'border-width': 3,
+        'border-color': '#6366f1',
+        'border-opacity': 1,
+        'overlay-color': '#6366f1',
+        'overlay-opacity': 0.2,
+        'overlay-padding': 6,
+        'z-index': 999,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node.walkthrough-dimmed',
+      style: {
+        'opacity': 0.2,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.walkthrough-dimmed',
+      style: {
+        'opacity': 0.1,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    {
+      selector: 'node.walkthrough-impact-flash',
+      style: {
+        'border-width': 4,
+        'border-color': '#ef4444',
+        'border-opacity': 1,
+        'overlay-color': '#ef4444',
+        'overlay-opacity': 0.3,
+        'overlay-padding': 8,
+        'z-index': 999,
+      } as unknown as cytoscape.Css.Node,
     },
   ];
 }
