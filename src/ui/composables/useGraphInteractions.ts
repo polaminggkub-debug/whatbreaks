@@ -351,6 +351,9 @@ export function bindGraphInteractions(
   // Hover focus: 3-tier dim model (skip during impact analysis)
   instance.on('mouseover', 'node', (evt) => {
     const node = evt.target as cytoscape.NodeSingular;
+    // Show pointer cursor for interactive nodes
+    const container = instance.container();
+    if (container) container.style.cursor = 'pointer';
     if (node.data('type') === 'group') return;
 
     // Hub hover preview (skip during impact mode)
@@ -394,6 +397,9 @@ export function bindGraphInteractions(
   });
 
   instance.on('mouseout', 'node', (evt) => {
+    // Restore grab cursor when leaving node
+    const container = instance.container();
+    if (container) container.style.cursor = 'grab';
     if (evt.target.data('type') === 'group') return;
 
     // Restore hub edge hiding on mouseout (unless locked)
@@ -412,6 +418,8 @@ export function bindGraphInteractions(
 
   // Aggregate edge hover — show tooltip with import count
   instance.on('mouseover', 'edge.aggregate-edge.aggregate-visible', (evt) => {
+    const container = instance.container();
+    if (container) container.style.cursor = 'pointer';
     const edge = evt.target as cytoscape.EdgeSingular;
     const count = edge.data('count') || 1;
     const srcNode = instance.getElementById(edge.data('source'));
@@ -419,7 +427,6 @@ export function bindGraphInteractions(
     const srcLabel = srcNode.data('label') || edge.data('source');
     const tgtLabel = tgtNode.data('label') || edge.data('target');
     const text = `${count} import${count !== 1 ? 's' : ''} from ${srcLabel} → ${tgtLabel}`;
-    const container = instance.container();
     if (container) {
       const rect = container.getBoundingClientRect();
       const pos = evt.renderedPosition;
@@ -428,6 +435,8 @@ export function bindGraphInteractions(
   });
 
   instance.on('mouseout', 'edge.aggregate-edge.aggregate-visible', () => {
+    const container = instance.container();
+    if (container) container.style.cursor = 'grab';
     hideEdgeTooltip();
   });
 }
