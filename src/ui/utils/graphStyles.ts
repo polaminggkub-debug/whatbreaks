@@ -554,5 +554,42 @@ export function getStylesheet(): cytoscape.Stylesheet[] {
         'z-index': 999,
       } as unknown as cytoscape.Css.Node,
     },
+    // ── Zoom-based simplification ─────────────────────────────────────
+    // Zoom-far: hide labels, fade edges
+    {
+      selector: 'node.zoom-far-node',
+      style: {
+        'label': '',
+        'text-opacity': 0,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'edge.zoom-far-edge',
+      style: {
+        'opacity': 0.15,
+      } as unknown as cytoscape.Css.Edge,
+    },
+    // Zoom-mid: labels hidden by default, shown on hover
+    {
+      selector: 'node.zoom-mid-node',
+      style: {
+        'label': '',
+        'text-opacity': 0,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node.zoom-mid-node.hover-focus',
+      style: {
+        'label': 'data(label)',
+        'text-opacity': 1,
+      } as unknown as cytoscape.Css.Node,
+    },
+    {
+      selector: 'node.zoom-mid-node.hover-neighbor',
+      style: {
+        'label': 'data(label)',
+        'text-opacity': 0.8,
+      } as unknown as cytoscape.Css.Node,
+    },
   ];
 }

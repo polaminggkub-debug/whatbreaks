@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, nextTick } from 'vue';
 import type { Graph, GraphNode } from '../types/graph';
 import GraphView from './components/GraphView.vue';
 import NodePanel from './components/NodePanel.vue';
 import ModeToggle from './components/ModeToggle.vue';
+import FocusControls from './components/FocusControls.vue';
 
 import Legend from './components/Legend.vue';
 import ViewControls from './components/ViewControls.vue';
@@ -18,6 +19,13 @@ import { useDevSocket } from './composables/useDevSocket';
 import { useAppHandlers } from './composables/useAppHandlers';
 import { useWalkthrough } from './composables/useWalkthrough';
 import { expandGroup, collapseGroup } from './composables/useGroupCollapse';
+import {
+  getFocusState,
+  setFocusDepth,
+  clearFocusState,
+  setFocusChangeCallback,
+  type FocusState,
+} from './composables/useGraphInteractions';
 
 const graph = ref<Graph | null>(null);
 const selectedNode = ref<GraphNode | null>(null);
@@ -29,8 +37,8 @@ const modeState = useMode();
 const { mode, selectedTarget } = modeState;
 
 const layoutMode = ref<'dagre' | 'cose'>('dagre');
-const showTests = ref(true);
-const showFoundation = ref(true);
+const showTests = ref(false);
+const showFoundation = ref(false);
 const sizeMode = ref<'fanIn' | 'uniform'>('fanIn');
 const impact = useImpact(graph);
 const { highlightResult } = impact;
@@ -38,6 +46,7 @@ const { healthReport } = useHealth(graph);
 const { isDevMode, isConnected, devGraph, devFailure } = useDevSocket();
 
 const showHealth = ref(false);
+const focusState = ref<FocusState>({ nodeId: null, nodeLabel: '', depth: 1 });
 const walkthrough = useWalkthrough(() => graph.value, {
   expandGroup,
   collapseGroup,
@@ -74,6 +83,34 @@ const {
   onHealthHighlightCycle,
 } = useAppHandlers(graph, selectedNode, graphViewRef, impact, modeState, showHealth);
 
+function handleNodeClick(nodeId: string) {
+  onNodeClick(nodeId);
+  nextTick(() => {
+    focusState.value = getFocusState();
+  });
+}
+
+function onFocusDepthChange(depth: number) {
+  const cyInstance = graphViewRef.value?.getCy?.();
+  if (!cyInstance) return;
+  setFocusDepth(cyInstance, depth);
+  focusState.value = getFocusState();
+}
+
+function onFocusClose() {
+  const cyInstance = graphViewRef.value?.getCy?.();
+  if (!cyInstance) return;
+  clearFocusState();
+  focusState.value = getFocusState();
+  // Clear visual focus
+  cyInstance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
+  cyInstance.animate({
+    fit: { eles: cyInstance.elements(), padding: 40 },
+    duration: 400,
+    easing: 'ease-out-cubic',
+  });
+}
+
 // Auto-dismiss walkthrough when impact analysis starts
 watch(highlightResult, (result) => {
   if (result && walkthrough.isActive.value) {
@@ -95,6 +132,10 @@ watch(devFailure, (newFailure) => {
 });
 
 onMounted(async () => {
+  setFocusChangeCallback((state) => {
+    focusState.value = { ...state };
+  });
+
   try {
     const res = await fetch('/api/graph');
     if (!res.ok) throw new Error(`Failed to load graph: ${res.status}`);
@@ -195,7 +236,7 @@ onMounted(async () => {
         :showTests="showTests"
         :showFoundation="showFoundation"
         :sizeMode="sizeMode"
-        @nodeClick="onNodeClick"
+        @nodeClick="handleNodeClick"
         @contextMenu="onContextMenu"
       />
       <div v-else class="empty-state">
@@ -229,6 +270,16 @@ onMounted(async () => {
           @highlightCycle="onHealthHighlightCycle"
         />
       </transition>
+
+      <!-- Focus depth controls -->
+      <FocusControls
+        :visible="focusState.nodeId !== null"
+        :depth="focusState.depth"
+        :maxDepth="3"
+        :nodeLabel="focusState.nodeLabel"
+        @update:depth="onFocusDepthChange"
+        @close="onFocusClose"
+      />
 
       <!-- Break simulation toast -->
       <ImpactToast

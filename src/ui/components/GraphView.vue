@@ -2,7 +2,6 @@
 import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue';
 import cytoscape from 'cytoscape';
 import cyDagre from 'cytoscape-dagre';
-import fcose from 'cytoscape-fcose';
 import type { Graph, AnalysisMode, FailingResult, RefactorResult } from '../../types/graph.js';
 import { getStylesheet } from '../utils/graphStyles.js';
 import { buildElements } from '../utils/buildCytoscapeElements.js';
@@ -22,7 +21,6 @@ import {
 } from '../utils/highlightUtils.js';
 
 cytoscape.use(cyDagre);
-cytoscape.use(fcose);
 
 const props = defineProps<{
   graph: Graph;
@@ -64,38 +62,22 @@ function getLayoutConfig() {
     };
   }
 
-  // Build soft directional constraints: upstream (low layerIndex) at top
-  const nodeLayerMap = new Map<string, number>();
-  for (const n of props.graph.nodes) {
-    nodeLayerMap.set(n.id, n.layerIndex ?? 0);
-  }
-
-  const constraints: { top: string; bottom: string }[] = [];
-  for (const edge of props.graph.edges) {
-    if (edge.type !== 'import') continue;
-    const srcLayer = nodeLayerMap.get(edge.source) ?? 0;
-    const tgtLayer = nodeLayerMap.get(edge.target) ?? 0;
-    if (Math.abs(srcLayer - tgtLayer) < 1) continue;
-    if (srcLayer === -1 || tgtLayer === -1) continue;
-    constraints.push({ top: edge.target, bottom: edge.source });
-  }
-
   return {
-    name: 'fcose',
-    animate: !prefersReducedMotion,
-    animationDuration: prefersReducedMotion ? 0 : 800,
+    name: 'cose',
+    animate: 'end',
+    animationDuration: 800,
     padding: 30,
-    nodeRepulsion: nodeCount > 100 ? 8000 : 4500,
-    idealEdgeLength: nodeCount > 100 ? 120 : 80,
-    edgeElasticity: 0.45,
+    nodeRepulsion: () => nodeCount > 100 ? 8000 : 4500,
+    idealEdgeLength: () => nodeCount > 100 ? 120 : 80,
+    edgeElasticity: () => 0.45,
     gravity: 0.25,
     numIter: 2500,
     nodeDimensionsIncludeLabels: true,
     fit: true,
     randomize: true,
-    quality: 'default',
-    nodeSeparation: 40,
-    relativePlacementConstraint: constraints.length > 0 ? constraints : undefined,
+    nodeOverlap: 20,
+    nestingFactor: 1.2,
+    componentSpacing: 100,
   };
 }
 
@@ -135,10 +117,8 @@ function detectHubs(instance: cytoscape.Core) {
     const inDegree = node.data('inDegree') as number;
     if (inDegree > HUB_THRESHOLD) {
       node.addClass('hub');
-      // Scale border width: min(2 + sqrt(inDegree), 8)
       const borderW = Math.min(2 + Math.sqrt(inDegree), 8);
       node.style('border-width', borderW);
-      // Hide connected edges
       node.connectedEdges().addClass('hub-edge-hidden');
     }
   });
@@ -159,21 +139,31 @@ function initCytoscape() {
     layoutMode: props.layoutMode ?? 'dagre',
   });
 
+  const isDagre = (props.layoutMode ?? 'dagre') === 'dagre';
+
   const instance = cytoscape({
     container: containerRef.value,
     elements,
     style: getStylesheet(),
-    layout: getLayoutConfig() as unknown as cytoscape.LayoutOptions,
+    // Start with preset; run actual layout after canvas is properly sized
+    layout: { name: 'preset' },
     minZoom: 0.1,
     maxZoom: 5,
     wheelSensitivity: 0.3,
     boxSelectionEnabled: false,
   });
 
-  // Auto-frame: ensure minimum readable zoom after layout
-  instance.one('layoutstop', () => {
-    const zoom = instance.zoom();
-    if (zoom < 0.35) {
+  // Force canvas resize to match container before running layout
+  instance.resize();
+
+  function postLayout() {
+    detectHubs(instance);
+    initGroupCollapse(instance);
+    if (isDagre) {
+      collapseAllGroups(instance);
+    }
+    // Ensure readable zoom level
+    if (instance.zoom() < 0.35) {
       instance.animate({
         zoom: 0.35,
         center: { eles: instance.elements() },
@@ -181,17 +171,51 @@ function initCytoscape() {
         easing: 'ease-out-cubic',
       });
     }
-    detectHubs(instance);
-    // Initialize and collapse all groups (default state)
-    initGroupCollapse(instance);
-    collapseAllGroups(instance);
-  });
+    applyZoomClasses(instance);
+  }
+
+  // Register layoutstop before running layout to avoid race condition
+  instance.one('layoutstop', postLayout);
+
+  // Run the actual layout now that canvas is properly sized
+  instance.layout(getLayoutConfig() as unknown as cytoscape.LayoutOptions).run();
 
   bindGraphInteractions(
     instance,
     (nodeId: string) => emit('nodeClick', nodeId),
     (x: number, y: number, nodeId: string, nodeLabel: string) => emit('contextMenu', x, y, nodeId, nodeLabel),
   );
+
+  // Zoom-based simplification
+  let currentZoomLevel: 'far' | 'mid' | 'close' = 'close';
+
+  function applyZoomClasses(inst: cytoscape.Core) {
+    const z = inst.zoom();
+    let newLevel: 'far' | 'mid' | 'close';
+    if (z < 0.45) newLevel = 'far';
+    else if (z <= 1.0) newLevel = 'mid';
+    else newLevel = 'close';
+
+    if (newLevel === currentZoomLevel) return;
+    currentZoomLevel = newLevel;
+
+    inst.batch(() => {
+      const leafNodes = inst.nodes().not('[type="group"]').not('.collapsed-child');
+      const regularEdges = inst.edges().not('.aggregate-edge');
+
+      leafNodes.removeClass('zoom-far-node zoom-mid-node');
+      regularEdges.removeClass('zoom-far-edge');
+
+      if (newLevel === 'far') {
+        leafNodes.addClass('zoom-far-node');
+        regularEdges.addClass('zoom-far-edge');
+      } else if (newLevel === 'mid') {
+        leafNodes.addClass('zoom-mid-node');
+      }
+    });
+  }
+
+  instance.on('zoom', () => applyZoomClasses(instance));
 
   cy.value = instance;
 }
@@ -218,14 +242,6 @@ watch(() => props.highlightResult, (result) => {
 
 watch(() => [props.layoutMode, props.showTests, props.showFoundation, props.sizeMode], () => {
   initCytoscape();
-  // Re-apply active highlight after graph rebuild (filter toggle)
-  if (props.highlightResult && cy.value) {
-    cy.value.one('layoutstop', () => {
-      if (cy.value && props.highlightResult) {
-        applyHighlightUtil(cy.value, props.highlightResult, startEdgeAnimation, stopEdgeAnimation);
-      }
-    });
-  }
 });
 
 // Exposed methods — delegate to extracted utilities

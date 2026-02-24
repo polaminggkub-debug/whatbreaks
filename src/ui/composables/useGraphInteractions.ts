@@ -1,5 +1,43 @@
 import type cytoscape from 'cytoscape';
 import { expandGroup, collapseGroup, getCollapsedGroups } from './useGroupCollapse.js';
+import {
+  showGroupTooltip,
+  hideGroupTooltip,
+  showEdgeTooltip,
+  hideEdgeTooltip,
+} from '../utils/tooltipUtils.js';
+import {
+  getNeighborhood,
+  selectNodeChain,
+  animateToChain,
+} from '../utils/neighborhoodUtils.js';
+
+/** State for the current focus mode */
+export interface FocusState {
+  nodeId: string | null;
+  nodeLabel: string;
+  depth: number;
+}
+
+let currentFocusState: FocusState = { nodeId: null, nodeLabel: '', depth: 1 };
+let onFocusChange: ((state: FocusState) => void) | null = null;
+
+export function getFocusState(): FocusState {
+  return { ...currentFocusState };
+}
+
+export function setFocusChangeCallback(cb: (state: FocusState) => void): void {
+  onFocusChange = cb;
+}
+
+function notifyFocusChange(): void {
+  onFocusChange?.({ ...currentFocusState });
+}
+
+export function clearFocusState(): void {
+  currentFocusState = { nodeId: null, nodeLabel: '', depth: 1 };
+  notifyFocusChange();
+}
 
 /**
  * Clears all group focus mode classes.
@@ -12,81 +50,6 @@ export function clearFocusMode(instance: cytoscape.Core): void {
 
 /** Currently locked (expanded) hub node ID, or null. */
 let lockedHubId: string | null = null;
-
-// ── Group tooltip (right-click to collapse hint) ────────────────────
-let groupTooltip: HTMLDivElement | null = null;
-
-function getGroupTooltip(): HTMLDivElement {
-  if (!groupTooltip) {
-    groupTooltip = document.createElement('div');
-    groupTooltip.className = 'wb-group-tooltip';
-    groupTooltip.textContent = 'Right-click to collapse';
-    Object.assign(groupTooltip.style, {
-      position: 'fixed',
-      pointerEvents: 'none',
-      background: 'rgba(15, 23, 42, 0.9)',
-      color: '#94a3b8',
-      fontSize: '11px',
-      padding: '4px 8px',
-      borderRadius: '4px',
-      border: '1px solid rgba(100, 116, 139, 0.3)',
-      zIndex: '9999',
-      display: 'none',
-      whiteSpace: 'nowrap',
-    });
-    document.body.appendChild(groupTooltip);
-  }
-  return groupTooltip;
-}
-
-function showGroupTooltip(x: number, y: number): void {
-  const tip = getGroupTooltip();
-  tip.style.left = `${x + 12}px`;
-  tip.style.top = `${y - 8}px`;
-  tip.style.display = 'block';
-}
-
-function hideGroupTooltip(): void {
-  if (groupTooltip) groupTooltip.style.display = 'none';
-}
-
-// ── Edge tooltip (aggregate edge hover) ──────────────────────────────
-let edgeTooltip: HTMLDivElement | null = null;
-
-function getEdgeTooltip(): HTMLDivElement {
-  if (!edgeTooltip) {
-    edgeTooltip = document.createElement('div');
-    edgeTooltip.className = 'wb-edge-tooltip';
-    Object.assign(edgeTooltip.style, {
-      position: 'fixed',
-      pointerEvents: 'none',
-      background: 'rgba(15, 23, 42, 0.95)',
-      color: '#e2e8f0',
-      fontSize: '12px',
-      padding: '6px 10px',
-      borderRadius: '6px',
-      border: '1px solid rgba(99, 102, 241, 0.4)',
-      zIndex: '9999',
-      display: 'none',
-      whiteSpace: 'nowrap',
-      maxWidth: '300px',
-    });
-    document.body.appendChild(edgeTooltip);
-  }
-  return edgeTooltip;
-}
-
-function showEdgeTooltip(x: number, y: number, text: string): void {
-  const tip = getEdgeTooltip();
-  tip.textContent = text;
-  tip.style.left = `${x + 12}px`;
-  tip.style.top = `${y - 8}px`;
-  tip.style.display = 'block';
-}
-
-function hideEdgeTooltip(): void {
-  if (edgeTooltip) edgeTooltip.style.display = 'none';
-}
 
 /** Collapse a hub: hide its edges, update label. */
 function collapseHub(instance: cytoscape.Core, nodeId: string): void {
@@ -109,71 +72,21 @@ function isImpactActive(instance: cytoscape.Core): boolean {
 }
 
 /**
- * Selects a node and shows its full transitive dependency chain.
- * Dims everything outside the chain.
+ * Sets the focus depth and re-applies the chain highlight.
  */
-function selectNodeChain(instance: cytoscape.Core, node: cytoscape.NodeSingular): void {
-  clearFocusMode(instance);
-  instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
+export function setFocusDepth(instance: cytoscape.Core, depth: number): void {
+  if (!currentFocusState.nodeId) return;
+  const node = instance.getElementById(currentFocusState.nodeId) as cytoscape.NodeSingular;
+  if (!node.length) return;
+  currentFocusState.depth = depth;
+  selectNodeChain(instance, node, depth, clearFocusMode);
 
-  node.addClass('selected-node');
+  // Animate to the new chain
+  const { nodes: chainNodes, edges: chainEdges } = getNeighborhood(instance, node, depth);
+  const chainEles = node.union(chainNodes).union(chainEdges);
+  animateToChain(instance, node, chainEles);
 
-  // Full transitive chain: upstream (importers) + downstream (imports)
-  const downstream = node.successors();
-  const upstream = node.predecessors();
-  const chain = downstream.union(upstream);
-
-  const chainNodes = chain.nodes().not('[type="group"]');
-  const chainEdges = chain.edges();
-
-  chainNodes.addClass('selected-neighbor');
-  chainEdges.addClass('selected-connected');
-
-  // Build focus set for quick lookup
-  const focusNodeIds = new Set<string>();
-  focusNodeIds.add(node.id());
-  chainNodes.forEach((n: cytoscape.NodeSingular) => focusNodeIds.add(n.id()));
-
-  // Dim everything outside the chain
-  const focusNodes = node.union(chainNodes);
-  instance.nodes().not(focusNodes).not('[type="group"]').addClass('selected-dimmed');
-  instance.edges().not(chainEdges).addClass('selected-dimmed');
-
-  // Dim groups with no descendants in the chain
-  instance.nodes('[type="group"]').forEach((g: cytoscape.NodeSingular) => {
-    const descendants = g.descendants().not('[type="group"]');
-    const hasChainMember = descendants.some((child: cytoscape.NodeSingular) => focusNodeIds.has(child.id()));
-    if (!hasChainMember) g.addClass('selected-dimmed');
-  });
-
-  return;
-}
-
-/**
- * Adaptive zoom: fit chain if readable, otherwise center on the node.
- */
-function animateToChain(instance: cytoscape.Core, node: cytoscape.NodeSingular, chainEles: cytoscape.Collection): void {
-  const bb = chainEles.boundingBox();
-  const pad = 100;
-  const fitZoom = Math.min(
-    (instance.width() - 2 * pad) / bb.w,
-    (instance.height() - 2 * pad) / bb.h,
-  );
-
-  if (fitZoom >= 0.5) {
-    instance.animate({
-      fit: { eles: chainEles, padding: pad },
-      duration: 400,
-      easing: 'ease-out-cubic',
-    });
-  } else {
-    instance.animate({
-      center: { eles: node },
-      zoom: 0.6,
-      duration: 400,
-      easing: 'ease-out-cubic',
-    });
-  }
+  notifyFocusChange();
 }
 
 /**
@@ -185,7 +98,7 @@ export function bindGraphInteractions(
   emitNodeClick: (nodeId: string) => void,
   emitContextMenu: (x: number, y: number, nodeId: string, nodeLabel: string) => void,
 ): void {
-  // Click node — focus mode: show full transitive dependency chain
+  // Click node — focus mode: show dependency chain at current depth
   instance.on('tap', 'node', (evt) => {
     if (evt.target.data('type') === 'group') return;
     const node = evt.target as cytoscape.NodeSingular;
@@ -193,7 +106,7 @@ export function bindGraphInteractions(
     // Hub click — toggle lock
     if (node.hasClass('hub') && !isImpactActive(instance)) {
       if (lockedHubId === node.id()) {
-        // Clicking locked hub → collapse
+        // Clicking locked hub -> collapse
         collapseHub(instance, node.id());
         lockedHubId = null;
         return;
@@ -216,17 +129,21 @@ export function bindGraphInteractions(
       return;
     }
 
-    selectNodeChain(instance, node);
+    // Set focus state with default depth=1
+    currentFocusState = {
+      nodeId: node.id(),
+      nodeLabel: node.data('label') || node.id(),
+      depth: 1,
+    };
 
-    // Animate to the chain
-    const downstream = node.successors();
-    const upstream = node.predecessors();
-    const chain = downstream.union(upstream);
-    const chainNodes = chain.nodes().not('[type="group"]');
-    const chainEdges = chain.edges();
+    selectNodeChain(instance, node, 1, clearFocusMode);
+
+    // Animate to the depth-limited chain
+    const { nodes: chainNodes, edges: chainEdges } = getNeighborhood(instance, node, 1);
     const chainEles = node.union(chainNodes).union(chainEdges);
     animateToChain(instance, node, chainEles);
 
+    notifyFocusChange();
     emitNodeClick(node.id());
   });
 
@@ -235,13 +152,13 @@ export function bindGraphInteractions(
     const target = evt.target as cytoscape.NodeSingular;
     const groupId = target.id();
 
-    // Collapsed group → expand on click
+    // Collapsed group -> expand on click
     if (target.hasClass('group-collapsed')) {
       expandGroup(instance, groupId);
       return;
     }
 
-    // Expanded group → existing focus mode toggle
+    // Expanded group -> existing focus mode toggle
     if (target.hasClass('group-focused')) {
       clearFocusMode(instance);
       instance.animate({
@@ -255,6 +172,7 @@ export function bindGraphInteractions(
     // Focus this group — also clear node selection
     clearFocusMode(instance);
     instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
+    clearFocusState();
     target.addClass('group-focused');
 
     // Children of focused group (recursive — includes nested subgroups)
@@ -314,6 +232,7 @@ export function bindGraphInteractions(
       const hadFocus = instance.nodes('.selected-node, .group-focused').length > 0;
       instance.elements().removeClass('selected-node selected-neighbor selected-connected selected-dimmed');
       clearFocusMode(instance);  // Resets to Level 1 (collapses aggregation)
+      clearFocusState();
       if (hadFocus) {
         instance.animate({
           fit: { eles: instance.elements(), padding: 40 },
@@ -442,14 +361,21 @@ export function bindGraphInteractions(
 }
 
 /**
- * Programmatically focuses a node and shows its transitive chain.
+ * Programmatically focuses a node and shows its dependency chain.
  * Used by external callers (e.g., search results, path trace).
  */
 export function focusNode(instance: cytoscape.Core, nodeId: string): void {
   const node = instance.getElementById(nodeId) as cytoscape.NodeSingular;
   if (!node.length) return;
 
-  selectNodeChain(instance, node);
+  currentFocusState = {
+    nodeId: node.id(),
+    nodeLabel: node.data('label') || node.id(),
+    depth: 1,
+  };
+
+  selectNodeChain(instance, node, 1, clearFocusMode);
+  notifyFocusChange();
 
   instance.animate({
     center: { eles: node },
