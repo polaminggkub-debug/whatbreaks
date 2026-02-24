@@ -50,6 +50,44 @@ function hideGroupTooltip(): void {
   if (groupTooltip) groupTooltip.style.display = 'none';
 }
 
+// ── Edge tooltip (aggregate edge hover) ──────────────────────────────
+let edgeTooltip: HTMLDivElement | null = null;
+
+function getEdgeTooltip(): HTMLDivElement {
+  if (!edgeTooltip) {
+    edgeTooltip = document.createElement('div');
+    edgeTooltip.className = 'wb-edge-tooltip';
+    Object.assign(edgeTooltip.style, {
+      position: 'fixed',
+      pointerEvents: 'none',
+      background: 'rgba(15, 23, 42, 0.95)',
+      color: '#e2e8f0',
+      fontSize: '12px',
+      padding: '6px 10px',
+      borderRadius: '6px',
+      border: '1px solid rgba(99, 102, 241, 0.4)',
+      zIndex: '9999',
+      display: 'none',
+      whiteSpace: 'nowrap',
+      maxWidth: '300px',
+    });
+    document.body.appendChild(edgeTooltip);
+  }
+  return edgeTooltip;
+}
+
+function showEdgeTooltip(x: number, y: number, text: string): void {
+  const tip = getEdgeTooltip();
+  tip.textContent = text;
+  tip.style.left = `${x + 12}px`;
+  tip.style.top = `${y - 8}px`;
+  tip.style.display = 'block';
+}
+
+function hideEdgeTooltip(): void {
+  if (edgeTooltip) edgeTooltip.style.display = 'none';
+}
+
 /** Collapse a hub: hide its edges, update label. */
 function collapseHub(instance: cytoscape.Core, nodeId: string): void {
   const node = instance.getElementById(nodeId) as cytoscape.NodeSingular;
@@ -370,6 +408,27 @@ export function bindGraphInteractions(
     }
 
     instance.elements().removeClass('hover-focus hover-neighbor hover-dimmed hover-connected impact-hover');
+  });
+
+  // Aggregate edge hover — show tooltip with import count
+  instance.on('mouseover', 'edge.aggregate-edge.aggregate-visible', (evt) => {
+    const edge = evt.target as cytoscape.EdgeSingular;
+    const count = edge.data('count') || 1;
+    const srcNode = instance.getElementById(edge.data('source'));
+    const tgtNode = instance.getElementById(edge.data('target'));
+    const srcLabel = srcNode.data('label') || edge.data('source');
+    const tgtLabel = tgtNode.data('label') || edge.data('target');
+    const text = `${count} import${count !== 1 ? 's' : ''} from ${srcLabel} → ${tgtLabel}`;
+    const container = instance.container();
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const pos = evt.renderedPosition;
+      showEdgeTooltip(rect.left + pos.x, rect.top + pos.y, text);
+    }
+  });
+
+  instance.on('mouseout', 'edge.aggregate-edge.aggregate-visible', () => {
+    hideEdgeTooltip();
   });
 }
 

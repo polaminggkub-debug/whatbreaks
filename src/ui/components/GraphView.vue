@@ -254,7 +254,7 @@ function clearEdgeHighlight() {
   clearEdgeHighlightUtil(cy.value);
 }
 
-defineExpose({ focusNode, highlightEdge, clearEdgeHighlight, highlightCycle, clearCycleHighlight });
+defineExpose({ focusNode, highlightEdge, clearEdgeHighlight, highlightCycle, clearCycleHighlight, getCy: () => cy.value });
 </script>
 
 <template>
